@@ -7,7 +7,7 @@ import asyncio
 def get_env_var(var_name, default=None):
     value = os.getenv(var_name)
     if not value and default is None:
-        print(f"ATTENZIONE: Variabile {var_name} non trovata")
+        print(f"⚠️ Variabile {var_name} non trovata")
     return value or default
 
 class TicketView(ui.View):
@@ -36,7 +36,7 @@ class TicketView(ui.View):
         
         if not staff_role_id:
             await interaction.response.send_message(
-                "Errore di configurazione: ruolo staff non configurato. Contatta un amministratore.",
+                "❌ Errore di configurazione: ruolo staff non configurato.",
                 ephemeral=True
             )
             return
@@ -44,7 +44,7 @@ class TicketView(ui.View):
         staff_role = guild.get_role(int(staff_role_id))
         if not staff_role:
             await interaction.response.send_message(
-                "Errore: ruolo staff non trovato nel server.",
+                "❌ Ruolo staff non trovato nel server.",
                 ephemeral=True
             )
             return
@@ -62,7 +62,7 @@ class TicketView(ui.View):
             topic=f"Ticket {ticket_type} di {interaction.user.display_name}"
         )
         
-        # Crea l'embed del ticket
+        # Embed del ticket
         embed = discord.Embed(
             title=f"Ticket {ticket_type}",
             description=f"Grazie per aver aperto un ticket {ticket_type}!\nLo staff ti aiuterà al più presto.",
@@ -74,7 +74,7 @@ class TicketView(ui.View):
         view = TicketManagementView()
         
         await channel.send(f"{staff_role.mention} {interaction.user.mention}", embed=embed, view=view)
-        await interaction.response.send_message(f"Ticket creato! {channel.mention}", ephemeral=True)
+        await interaction.response.send_message(f"✅ Ticket creato! {channel.mention}", ephemeral=True)
 
 class TicketManagementView(ui.View):
     def __init__(self):
@@ -97,8 +97,6 @@ class TicketManagementView(ui.View):
             color=discord.Color.red()
         )
         await interaction.response.send_message(embed=embed)
-        
-        # Aspetta 5 secondi e elimina il canale
         await asyncio.sleep(5)
         await interaction.channel.delete()
 
@@ -108,13 +106,12 @@ class TicketCog(commands.Cog):
     
     @commands.Cog.listener()
     async def on_ready(self):
-        # Registra le view persistenti
         self.bot.add_view(TicketView())
         self.bot.add_view(TicketManagementView())
     
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def setup_tickets(self, ctx):
+    @discord.app_commands.command(name="setup_tickets", description="Setup del sistema di ticket")
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    async def setup_tickets(self, interaction: discord.Interaction):
         """Setup del sistema di ticket"""
         embed = discord.Embed(
             title="NexaDev - Supporto",
@@ -127,7 +124,7 @@ class TicketCog(commands.Cog):
         embed.add_field(name="Partnership", value="Richiedi una partnership", inline=True)
         
         view = TicketView()
-        await ctx.send(embed=embed, view=view)
+        await interaction.response.send_message(embed=embed, view=view)
 
 async def setup(bot):
     await bot.add_cog(TicketCog(bot))
