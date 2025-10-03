@@ -15,7 +15,6 @@ class StatusCog(commands.Cog):
     async def get_custom_emoji(self, guild: discord.Guild, emoji_names: list) -> str:
         """Cerca emoji personalizzate nel server con fallback"""
         for emoji_name in emoji_names:
-            # Cerca l'emoji nel server
             for emoji in guild.emojis:
                 if emoji.name.lower() == emoji_name.lower():
                     return str(emoji)
@@ -30,7 +29,6 @@ class StatusCog(commands.Cog):
             "zap": "⚡"
         }
         
-        # Cerca il fallback per il primo nome nella lista
         for emoji_name in emoji_names:
             if emoji_name.lower() in fallback_emojis:
                 return fallback_emojis[emoji_name.lower()]
@@ -40,7 +38,9 @@ class StatusCog(commands.Cog):
     @discord.app_commands.command(name="status", description="Aggiorna lo status di un progetto")
     @discord.app_commands.describe(
         nome="Tipo di progetto",
-        modalità="Stato del progetto"
+        modalità="Stato del progetto",
+        persona="Persona per cui è il progetto (menzione)",
+        descrizione="Descrizione del progetto (opzionale)"
     )
     @discord.app_commands.choices(
         nome=[
@@ -49,18 +49,18 @@ class StatusCog(commands.Cog):
             discord.app_commands.Choice(name="server e bot", value="server e bot")
         ],
         modalità=[
-            discord.app_commands.Choice(name="Appena iniziato", value="Appena iniziato"),
-            discord.app_commands.Choice(name="A metà con il progetto", value="A metà con il progetto"),
-            discord.app_commands.Choice(name="Finito", value="Finito")
+            discord.app_commands.Choice(name="appena iniziato", value="appena iniziato"),
+            discord.app_commands.Choice(name="a metà", value="a metà"),
+            discord.app_commands.Choice(name="finito", value="finito")
         ]
     )
     @discord.app_commands.checks.has_permissions(administrator=True)
-    async def status(self, interaction: discord.Interaction, nome: str, modalità: str):
+    async def status(self, interaction: discord.Interaction, nome: str, modalità: str, persona: discord.Member, descrizione: str = None):
         """Aggiorna lo status di un progetto"""
         
         guild = interaction.guild
         
-        # Configurazione emoji di stato con i tuoi nomi specifici
+        # Configurazione emoji di stato
         status_emoji_config = {
             "appena iniziato": ["Red_Loading1", "red_loading1", "yellow_circle"],
             "a metà": ["loading_orange", "orange_circle"], 
@@ -78,23 +78,147 @@ class StatusCog(commands.Cog):
         emoji_status = await self.get_custom_emoji(guild, status_emoji_config.get(modalità, ["yellow_circle"]))
         emoji_project = await self.get_custom_emoji(guild, project_emoji_config.get(nome, ["computer"]))
         
+        # Crea l'embed per il canale status
         embed = discord.Embed(
-            title=f"{emoji_project} Stato Progetto - {nome.title()}",
-            description=f"**Stato:** {emoji_status} {modalità.title()}",
+            title=f"{emoji_project} {nome.title()} - {modalità.title()}",
             color=self.get_status_color(modalità)
         )
+        
+        embed.add_field(name="👤 Cliente", value=persona.mention, inline=True)
+        embed.add_field(name="📊 Stato", value=f"{emoji_status} {modalità.title()}", inline=True)
+        embed.add_field(name="🛠️ Tipo", value=nome.title(), inline=True)
+        
+        if descrizione:
+            embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
+        
         embed.set_footer(text=f"Aggiornato da {interaction.user.display_name}")
         
+        # Invia nel canale status
         channel_id = get_env_var('STATUS_CHANNEL_ID')
         if channel_id:
             channel = self.bot.get_channel(int(channel_id))
             if channel:
                 await channel.send(embed=embed)
                 await interaction.response.send_message("✅ Status aggiornato con successo!", ephemeral=True)
+                
+                # Notifica la persona via DM se lo status è "finito"
+                if modalità == "finito":
+                    try:
+                        dm_embed = discord.Embed(
+                            title="🎉 Il tuo progetto è pronto!",
+                            description=f"Il tuo {nome} è stato completato!",
+                            color=discord.Color.green()
+                        )
+                        dm_embed.add_field(name="📊 Stato", value="Completato ✅", inline=True)
+                        dm_embed.add_field(name="🛠️ Tipo", value=nome.title(), inline=True)
+                        
+                        if descrizione:
+                            dm_embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
+                        
+                        dm_embed.set_footer(text="Grazie per aver scelto NexaDev!")
+                        
+                        await persona.send(embed=dm_embed)
+                        await interaction.followup.send(f"✅ Notifica inviata in DM a {persona.mention}", ephemeral=True)
+                    except discord.Forbidden:
+                        await interaction.followup.send(f"❌ Impossibile inviare DM a {persona.mention}", ephemeral=True)
             else:
                 await interaction.response.send_message("❌ Canale status non trovato!", ephemeral=True)
         else:
-            await interaction.response.send_message("⚠️ Canale status non configurato. Imposta STATUS_CHANNEL_ID.", ephemeral=True)
+            await interaction.response.send_message("⚠️ Canale status non configurato.", ephemeral=True)
+    
+    @discord.app_commands.command(name="statusfinito", description="Marca un progetto come finito e invia invito al cliente")
+    @discord.app_commands.describe(
+        persona="Persona per cui è il progetto (menzione)",
+        descrizione="Descrizione del progetto",
+        invito="Invito al server Discord"
+    )
+    @discord.app_commands.choices(
+        nome=[
+            discord.app_commands.Choice(name="server", value="server"),
+            discord.app_commands.Choice(name="bot", value="bot"),
+            discord.app_commands.Choice(name="server e bot", value="server e bot")
+        ]
+    )
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    async def statusfinito(self, interaction: discord.Interaction, persona: discord.Member, descrizione: str, invito: str, nome: str = "server"):
+        """Marca un progetto come finito e invia tutto al cliente"""
+        
+        guild = interaction.guild
+        
+        # Configurazione emoji
+        status_emoji_config = {
+            "finito": ["Green_Loading1", "green_loading1", "green_circle"]
+        }
+        
+        project_emoji_config = {
+            "server": ["computer", "server", "desktop"],
+            "bot": ["robot", "bot", "robot_face"],
+            "server e bot": ["zap", "lightning", "both"]
+        }
+        
+        # Ottieni le emoji
+        emoji_status = await self.get_custom_emoji(guild, status_emoji_config.get("finito", ["green_circle"]))
+        emoji_project = await self.get_custom_emoji(guild, project_emoji_config.get(nome, ["computer"]))
+        
+        # Embed per il canale status
+        status_embed = discord.Embed(
+            title=f"{emoji_project} {nome.title()} - Completato 🎉",
+            color=discord.Color.green()
+        )
+        
+        status_embed.add_field(name="👤 Cliente", value=persona.mention, inline=True)
+        status_embed.add_field(name="📊 Stato", value=f"{emoji_status} Completato", inline=True)
+        status_embed.add_field(name="🛠️ Tipo", value=nome.title(), inline=True)
+        status_embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
+        
+        status_embed.set_footer(text=f"Completato da {interaction.user.display_name}")
+        
+        # Embed per il DM del cliente
+        dm_embed = discord.Embed(
+            title="🎉 Il tuo progetto è pronto!",
+            description=f"Il tuo **{nome.title()}** è stato completato con successo!",
+            color=discord.Color.green()
+        )
+        
+        dm_embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
+        dm_embed.add_field(name="🔗 Invito Server", value=f"[Clicca qui per entrare]({invito})", inline=True)
+        dm_embed.add_field(name="🛠️ Sviluppatore", value=interaction.user.mention, inline=True)
+        
+        dm_embed.set_footer(text="Grazie per aver scelto NexaDev! 💫")
+        
+        # Invia nel canale status
+        channel_id = get_env_var('STATUS_CHANNEL_ID')
+        if channel_id:
+            channel = self.bot.get_channel(int(channel_id))
+            if channel:
+                await channel.send(embed=status_embed)
+                
+                # Invia DM al cliente
+                try:
+                    await persona.send(embed=dm_embed)
+                    
+                    # Invia anche l'invito come messaggio separato (più visibile)
+                    invite_embed = discord.Embed(
+                        title="🔗 Invito al Server",
+                        description=f"**Clicca sul link qui sotto per entrare nel server:**\n{invito}",
+                        color=discord.Color.blue()
+                    )
+                    await persona.send(embed=invite_embed)
+                    
+                    await interaction.response.send_message(
+                        f"✅ Progetto marcato come completato e notifica inviata a {persona.mention}!", 
+                        ephemeral=True
+                    )
+                    
+                except discord.Forbidden:
+                    await interaction.response.send_message(
+                        f"❌ Impossibile inviare DM a {persona.mention}. Il progetto è stato comunque marcato come completato.", 
+                        ephemeral=True
+                    )
+            else:
+                await interaction.response.send_message("❌ Canale status non trovato!", ephemeral=True)
+        else:
+            await interaction.response.send_message("⚠️ Canale status non configurato.", ephemeral=True)
     
     def get_status_color(self, status: str) -> discord.Color:
         colors = {
@@ -106,7 +230,7 @@ class StatusCog(commands.Cog):
     
     @discord.app_commands.command(name="emoji_list", description="Mostra le emoji disponibili nel server")
     async def emoji_list(self, interaction: discord.Interaction):
-        """Mostra tutte le emoji del server per aiutare la configurazione"""
+        """Mostra tutte le emoji del server"""
         guild = interaction.guild
         emojis = guild.emojis
         
@@ -114,101 +238,24 @@ class StatusCog(commands.Cog):
             await interaction.response.send_message("❌ Nessuna emoji personalizzata trovata nel server.", ephemeral=True)
             return
         
-        # Filtra le emoji che ci interessano
-        target_emojis = ["Red_Loading1", "loading_orange", "Green_Loading1", "computer", "robot", "zap"]
-        found_emojis = []
-        other_emojis = []
-        
-        for emoji in emojis:
-            if any(target in emoji.name.lower() for target in [name.lower() for name in target_emojis]):
-                found_emojis.append(emoji)
-            else:
-                other_emojis.append(emoji)
-        
         embed = discord.Embed(
-            title="🎨 Emoji del Server NexaDev",
-            description="Emoji trovate per il sistema di status:",
+            title="🎨 Emoji del Server",
+            description="Ecco le emoji disponibili:",
             color=discord.Color.blue()
         )
         
-        # Mostra prima le emoji rilevanti
-        if found_emojis:
-            relevant_list = []
-            for emoji in found_emojis[:10]:
-                relevant_list.append(f"{emoji} `:{emoji.name}:`")
-            
-            embed.add_field(
-                name="✅ Emoji Rilevanti",
-                value="\n".join(relevant_list),
-                inline=False
-            )
-        
-        # Poi altre emoji
-        if other_emojis:
-            other_list = []
-            for emoji in other_emojis[:10]:
-                other_list.append(f"{emoji} `:{emoji.name}:`")
-            
-            embed.add_field(
-                name="📋 Altre Emoji",
-                value="\n".join(other_list),
-                inline=False
-            )
-        
-        if len(emojis) > 20:
-            embed.set_footer(text=f"Totali: {len(emojis)} emoji nel server")
-        
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-    
-    @discord.app_commands.command(name="check_status_emojis", description="Verifica se le emoji di status sono configurate correttamente")
-    async def check_status_emojis(self, interaction: discord.Interaction):
-        """Verifica la configurazione delle emoji di status"""
-        guild = interaction.guild
-        emojis = guild.emojis
-        
-        embed = discord.Embed(
-            title="🔍 Verifica Emoji Status",
-            description="Stato delle emoji richieste per il sistema di status:",
-            color=discord.Color.blue()
-        )
-        
-        # Lista delle emoji richieste
-        required_emojis = {
-            "Appena Iniziato": ["Red_Loading1", "red_loading1"],
-            "A Metà": ["loading_orange", "loading_orange"],
-            "Finito": ["Green_Loading1", "green_loading1"],
-            "Server": ["computer", "server"],
-            "Bot": ["robot", "bot"],
-            "Server e Bot": ["zap", "lightning"]
-        }
-        
-        status_messages = []
-        
-        for status_type, emoji_names in required_emojis.items():
-            found = False
-            found_emoji = None
-            
-            for emoji_name in emoji_names:
-                for emoji in emojis:
-                    if emoji.name.lower() == emoji_name.lower():
-                        found = True
-                        found_emoji = emoji
-                        break
-                if found:
-                    break
-            
-            if found and found_emoji:
-                status_messages.append(f"✅ **{status_type}:** {found_emoji} `:{found_emoji.name}:`")
-            else:
-                status_messages.append(f"❌ **{status_type}:** Emoji non trovata (cercate: {', '.join(emoji_names)})")
+        emoji_list = []
+        for emoji in emojis[:15]:  # Limita a 15 per non superare i limiti
+            emoji_list.append(f"{emoji} `:{emoji.name}:`")
         
         embed.add_field(
-            name="Stato Configurazione",
-            value="\n".join(status_messages),
+            name="Emoji",
+            value="\n".join(emoji_list),
             inline=False
         )
         
-        embed.set_footer(text="Usa /emoji_list per vedere tutte le emoji disponibili")
+        if len(emojis) > 15:
+            embed.set_footer(text=f"e altre {len(emojis) - 15} emoji...")
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
