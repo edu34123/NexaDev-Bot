@@ -2,6 +2,10 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from flask import Flask
+import threading
+import requests
+import time
 
 load_dotenv()
 
@@ -15,6 +19,34 @@ if missing_vars:
     raise Exception(f"Variabili d'ambiente ESSENZIALI mancanti: {', '.join(missing_vars)}")
 
 print("✅ Tutte le variabili essenziali trovate")
+
+# App Flask per keep-alive
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "✅ NexaDev Bot is running!"
+
+@app.route('/health')
+def health():
+    return "OK"
+
+def run_flask():
+    port = int(os.getenv('PORT', 10000))
+    print(f"🌐 Server Flask sulla porta {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
+
+# Keep-alive per evitare sospensioni
+def keep_alive():
+    time.sleep(30)  # Aspetta che tutto si avvii
+    while True:
+        try:
+            # Fai una richiesta a te stesso per mantenere attivo
+            requests.get(f"http://localhost:{os.getenv('PORT', 10000)}/health", timeout=5)
+            print("🔄 Keep-alive request inviata")
+        except:
+            print("⚠️ Keep-alive fallita")
+        time.sleep(300)  # Ogni 5 minuti
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='/', intents=intents)
@@ -49,6 +81,17 @@ async def on_connect():
     await load_cogs()
 
 if __name__ == "__main__":
+    # Avvia Flask
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    # Avvia keep-alive
+    keep_alive_thread = threading.Thread(target=keep_alive)
+    keep_alive_thread.daemon = True
+    keep_alive_thread.start()
+    
+    # Avvia bot Discord
     token = os.getenv('DISCORD_TOKEN')
     if not token:
         raise ValueError("❌ DISCORD_TOKEN non trovato")
