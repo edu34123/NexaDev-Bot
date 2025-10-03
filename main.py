@@ -2,10 +2,10 @@ import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from flask import Flask
-import threading
 
 load_dotenv()
+
+print("🚀 Avvio NexaDev Bot...")
 
 # Verifica solo le variabili essenziali
 required_env_vars = ['DISCORD_TOKEN']
@@ -15,25 +15,6 @@ if missing_vars:
     raise Exception(f"Variabili d'ambiente ESSENZIALI mancanti: {', '.join(missing_vars)}")
 
 print("✅ Tutte le variabili essenziali trovate")
-
-# Crea app Flask semplice
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "✅ NexaDev Bot is running!"
-
-@app.route('/health')
-def health():
-    return "OK"
-
-def run_flask():
-    port = int(os.getenv('PORT', 10000))
-    print(f"🚀 Avvio server Flask sulla porta {port}")
-    try:
-        app.run(host='0.0.0.0', port=port, debug=False)
-    except Exception as e:
-        print(f"❌ Errore Flask: {e}")
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='/', intents=intents)
@@ -59,7 +40,7 @@ async def load_cogs():
                 except Exception as e:
                     print(f'❌ Errore caricamento cogs.{filename[:-3]}: {e}')
     else:
-        print("📁 Directory cogs non trovata")
+        print("📁 Directory cogs non trovata, continuo senza cogs")
     print(f'📦 Totale cogs caricati: {loaded_cogs}')
 
 @bot.event
@@ -68,18 +49,6 @@ async def on_connect():
     await load_cogs()
 
 if __name__ == "__main__":
-    print('🚀 Avvio NexaDev Bot...')
-    
-    # Avvia Flask in un thread separato
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    
-    print("⏳ Attendendo avvio server Flask...")
-    import time
-    time.sleep(5)
-    
-    # Avvia il bot Discord
     token = os.getenv('DISCORD_TOKEN')
     if not token:
         raise ValueError("❌ DISCORD_TOKEN non trovato")
