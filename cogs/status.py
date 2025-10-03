@@ -40,7 +40,8 @@ class StatusCog(commands.Cog):
         nome="Tipo di progetto",
         modalità="Stato del progetto",
         persona="Persona per cui è il progetto (menzione)",
-        descrizione="Descrizione del progetto (opzionale)"
+        descrizione="Descrizione del progetto (opzionale)",
+        invito="Link invito server Discord (opzionale)"
     )
     @discord.app_commands.choices(
         nome=[
@@ -55,7 +56,7 @@ class StatusCog(commands.Cog):
         ]
     )
     @discord.app_commands.checks.has_permissions(administrator=True)
-    async def status(self, interaction: discord.Interaction, nome: str, modalità: str, persona: discord.Member, descrizione: str = None):
+    async def status(self, interaction: discord.Interaction, nome: str, modalità: str, persona: discord.Member, descrizione: str = None, invito: str = None):
         """Aggiorna lo status di un progetto"""
         
         guild = interaction.guild
@@ -90,6 +91,9 @@ class StatusCog(commands.Cog):
         
         if descrizione:
             embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
+            
+        if invito:
+            embed.add_field(name="🔗 Invito", value=f"[Link Server]({invito})", inline=True)
         
         embed.set_footer(text=f"Aggiornato da {interaction.user.display_name}")
         
@@ -101,12 +105,12 @@ class StatusCog(commands.Cog):
                 await channel.send(embed=embed)
                 await interaction.response.send_message("✅ Status aggiornato con successo!", ephemeral=True)
                 
-                # Notifica la persona via DM se lo status è "finito"
-                if modalità == "finito":
-                    try:
+                # Notifica la persona via DM in base allo stato
+                try:
+                    if modalità == "finito":
                         dm_embed = discord.Embed(
                             title="🎉 Il tuo progetto è pronto!",
-                            description=f"Il tuo {nome} è stato completato!",
+                            description=f"Il tuo **{nome}** è stato completato!",
                             color=discord.Color.green()
                         )
                         dm_embed.add_field(name="📊 Stato", value="Completato ✅", inline=True)
@@ -115,12 +119,53 @@ class StatusCog(commands.Cog):
                         if descrizione:
                             dm_embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
                         
+                        if invito:
+                            dm_embed.add_field(name="🔗 Invito Server", value=f"[Clicca qui per entrare]({invito})", inline=False)
+                        
                         dm_embed.set_footer(text="Grazie per aver scelto NexaDev!")
                         
                         await persona.send(embed=dm_embed)
-                        await interaction.followup.send(f"✅ Notifica inviata in DM a {persona.mention}", ephemeral=True)
-                    except discord.Forbidden:
-                        await interaction.followup.send(f"❌ Impossibile inviare DM a {persona.mention}", ephemeral=True)
+                        
+                        # Se c'è l'invito, invialo anche come messaggio separato
+                        if invito:
+                            invite_msg = await persona.send(f"**🔗 Invito al tuo server:** {invito}")
+                        
+                        await interaction.followup.send(f"✅ Notifica di completamento inviata in DM a {persona.mention}", ephemeral=True)
+                    
+                    elif modalità == "a metà":
+                        dm_embed = discord.Embed(
+                            title="🔄 Progresso Progetto",
+                            description=f"Il tuo **{nome}** è a metà del sviluppo!",
+                            color=discord.Color.orange()
+                        )
+                        dm_embed.add_field(name="📊 Stato", value="In Lavorazione ⚠️", inline=True)
+                        
+                        if descrizione:
+                            dm_embed.add_field(name="📝 Progresso", value=descrizione, inline=False)
+                        
+                        dm_embed.set_footer(text="NexaDev - Ti terremo aggiornato!")
+                        
+                        await persona.send(embed=dm_embed)
+                        await interaction.followup.send(f"✅ Notifica di progresso inviata a {persona.mention}", ephemeral=True)
+                    
+                    elif modalità == "appena iniziato":
+                        dm_embed = discord.Embed(
+                            title="🚀 Progetto Iniziato!",
+                            description=f"Hiamo iniziato a lavorare sul tuo **{nome}**!",
+                            color=discord.Color.blue()
+                        )
+                        dm_embed.add_field(name="📊 Stato", value="Appena Iniziato 🔄", inline=True)
+                        
+                        if descrizione:
+                            dm_embed.add_field(name="📝 Dettagli", value=descrizione, inline=False)
+                        
+                        dm_embed.set_footer(text="NexaDev - Sviluppo in corso!")
+                        
+                        await persona.send(embed=dm_embed)
+                        await interaction.followup.send(f"✅ Notifica di inizio inviata a {persona.mention}", ephemeral=True)
+                        
+                except discord.Forbidden:
+                    await interaction.followup.send(f"❌ Impossibile inviare DM a {persona.mention}", ephemeral=True)
             else:
                 await interaction.response.send_message("❌ Canale status non trovato!", ephemeral=True)
         else:
@@ -130,7 +175,8 @@ class StatusCog(commands.Cog):
     @discord.app_commands.describe(
         persona="Persona per cui è il progetto (menzione)",
         descrizione="Descrizione del progetto",
-        invito="Invito al server Discord"
+        invito="Invito al server Discord",
+        nome="Tipo di progetto (opzionale)"
     )
     @discord.app_commands.choices(
         nome=[
@@ -170,6 +216,7 @@ class StatusCog(commands.Cog):
         status_embed.add_field(name="📊 Stato", value=f"{emoji_status} Completato", inline=True)
         status_embed.add_field(name="🛠️ Tipo", value=nome.title(), inline=True)
         status_embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
+        status_embed.add_field(name="🔗 Invito", value=f"[Link Server]({invito})", inline=True)
         
         status_embed.set_footer(text=f"Completato da {interaction.user.display_name}")
         
@@ -199,7 +246,7 @@ class StatusCog(commands.Cog):
                     
                     # Invia anche l'invito come messaggio separato (più visibile)
                     invite_embed = discord.Embed(
-                        title="🔗 Invito al Server",
+                        title="🔗 Invito al Tuo Server",
                         description=f"**Clicca sul link qui sotto per entrare nel server:**\n{invito}",
                         color=discord.Color.blue()
                     )
@@ -245,7 +292,7 @@ class StatusCog(commands.Cog):
         )
         
         emoji_list = []
-        for emoji in emojis[:15]:  # Limita a 15 per non superare i limiti
+        for emoji in emojis[:15]:
             emoji_list.append(f"{emoji} `:{emoji.name}:`")
         
         embed.add_field(
