@@ -122,8 +122,8 @@ class StatusCog(commands.Cog):
                 "invite": "🔗 Invito",
                 "updated_by": "Aggiornato da",
                 "success": "✅ Status aggiornato con successo!",
-                "channel_not_found": "❌ Canale status non trovato!",
-                "channel_not_configured": "⚠️ Canale status non configurato.",
+                "channel_not_found": "❌ Canale status italiano non trovato!",
+                "channel_not_configured": "⚠️ Canale status italiano non configurato.",
                 "dm_error": "❌ Impossibile inviare DM a {mention}",
                 "progress_notification": "✅ Notifica di progresso inviata a {mention}",
                 "start_notification": "✅ Notifica di inizio inviata a {mention}",
@@ -168,8 +168,8 @@ class StatusCog(commands.Cog):
                 "invite": "🔗 Invite",
                 "updated_by": "Updated by",
                 "success": "✅ Status updated successfully!",
-                "channel_not_found": "❌ Status channel not found!",
-                "channel_not_configured": "⚠️ Status channel not configured.",
+                "channel_not_found": "❌ English status channel not found!",
+                "channel_not_configured": "⚠️ English status channel not configured.",
                 "dm_error": "❌ Cannot send DM to {mention}",
                 "progress_notification": "✅ Progress notification sent to {mention}",
                 "start_notification": "✅ Start notification sent to {mention}",
@@ -228,10 +228,19 @@ class StatusCog(commands.Cog):
         
         embed.set_footer(text=f"{lang_texts['updated_by']} {interaction.user.display_name}")
         
-        # Invia nel canale status
-        channel_id = get_env_var('STATUS_CHANNEL_ID')
-        if channel_id:
-            channel = self.bot.get_channel(int(channel_id))
+        # CANALI SEPARATI PER LINGUA
+        if language == "it":
+            channel_id = get_env_var('STATUS_CHANNEL_ITA_ID')
+            fallback_channel_id = get_env_var('STATUS_CHANNEL_ID')  # Fallback al canale generale
+        else:  # en
+            channel_id = get_env_var('STATUS_CHANNEL_ENG_ID')
+            fallback_channel_id = get_env_var('STATUS_CHANNEL_ID')  # Fallback al canale generale
+        
+        # Usa il canale specifico per la lingua, altrimenti fallback
+        target_channel_id = channel_id or fallback_channel_id
+        
+        if target_channel_id:
+            channel = self.bot.get_channel(int(target_channel_id))
             if channel:
                 await channel.send(embed=embed)
                 await interaction.response.send_message(lang_texts["success"], ephemeral=True)
@@ -365,8 +374,8 @@ class StatusCog(commands.Cog):
                 "invite_description": f"**Clicca sul link qui sotto per entrare nel server:**\n{invito}",
                 "success": f"✅ Progetto marcato come completato e notifica inviata a {persona.mention}!",
                 "dm_error": f"❌ Impossibile inviare DM a {persona.mention}. Il progetto è stato comunque marcato come completato.",
-                "channel_error": "❌ Canale status non trovato!",
-                "config_error": "⚠️ Canale status non configurato."
+                "channel_error": "❌ Canale status italiano non trovato!",
+                "config_error": "⚠️ Canale status italiano non configurato."
             },
             "en": {
                 "status_title": f"{emoji_project} {nome.replace('server e bot', 'Server & Bot').title()} - Completed 🎉",
@@ -384,8 +393,8 @@ class StatusCog(commands.Cog):
                 "invite_description": f"**Click the link below to join the server:**\n{invito}",
                 "success": f"✅ Project marked as completed and notification sent to {persona.mention}!",
                 "dm_error": f"❌ Cannot send DM to {persona.mention}. Project was still marked as completed.",
-                "channel_error": "❌ Status channel not found!",
-                "config_error": "⚠️ Status channel not configured."
+                "channel_error": "❌ English status channel not found!",
+                "config_error": "⚠️ English status channel not configured."
             }
         }
         
@@ -418,10 +427,18 @@ class StatusCog(commands.Cog):
         
         dm_embed.set_footer(text=lang_texts["footer"])
         
-        # Invia nel canale status
-        channel_id = get_env_var('STATUS_CHANNEL_ID')
-        if channel_id:
-            channel = self.bot.get_channel(int(channel_id))
+        # CANALI SEPARATI PER LINGUA
+        if language == "it":
+            channel_id = get_env_var('STATUS_CHANNEL_ITA_ID')
+            fallback_channel_id = get_env_var('STATUS_CHANNEL_ID')
+        else:  # en
+            channel_id = get_env_var('STATUS_CHANNEL_ENG_ID')
+            fallback_channel_id = get_env_var('STATUS_CHANNEL_ID')
+        
+        target_channel_id = channel_id or fallback_channel_id
+        
+        if target_channel_id:
+            channel = self.bot.get_channel(int(target_channel_id))
             if channel:
                 await channel.send(embed=status_embed)
                 
