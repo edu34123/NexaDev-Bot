@@ -3,12 +3,6 @@ import discord
 from discord.ext import commands
 from discord import ui
 
-def get_env_var(var_name, default=None):
-    value = os.getenv(var_name)
-    if not value and default is None:
-        print(f"⚠️ Variabile {var_name} non trovata")
-    return value or default
-
 class LanguageSelectView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -22,7 +16,6 @@ class LanguageSelectView(ui.View):
         await self.setup_language_section(interaction, "english")
     
     async def setup_language_section(self, interaction: discord.Interaction, language: str):
-        # Assegna il ruolo in base alla lingua
         guild = interaction.guild
         
         if language == "italiano":
@@ -34,50 +27,49 @@ class LanguageSelectView(ui.View):
             embed_title = "Welcome to NexaDev!"
             embed_description = "Select the type of assistance you need:"
         
-        # Cerca o crea il ruolo
+        # Cerca il ruolo
         role = discord.utils.get(guild.roles, name=role_name)
         if not role:
             try:
                 role = await guild.create_role(name=role_name)
-                print(f"✅ Ruolo {role_name} creato")
             except discord.Forbidden:
                 await interaction.response.send_message(
-                    "❌ Non ho i permessi per creare ruoli. Contatta un amministratore.",
+                    "❌ Non ho i permessi per creare ruoli.",
                     ephemeral=True
                 )
                 return
         
-        # Assegna il ruolo all'utente
+        # Assegna il ruolo
         try:
             await interaction.user.add_roles(role)
         except discord.Forbidden:
             await interaction.response.send_message(
-                "❌ Non ho i permessi per assegnare ruoli. Contatta un amministratore.",
+                "❌ Non ho i permessi per assegnare ruoli.",
                 ephemeral=True
             )
             return
         
-        # Invia il messaggio dei ticket nella lingua corretta
+        # Crea embed per i ticket
         if language == "italiano":
             embed = discord.Embed(
                 title=embed_title,
                 description=embed_description,
                 color=discord.Color.blue()
             )
-            embed.add_field(name="🤖 Bot Creator", value="Richiedi la creazione di un bot", inline=True)
-            embed.add_field(name="🖥️ Server Creator", value="Richiedi la creazione di un server", inline=True)
-            embed.add_field(name="⚡ Server/Bot Creator", value="Richiedi entrambi i servizi", inline=True)
-            embed.add_field(name="🤝 Partnership", value="Richiedi una partnership", inline=True)
+            embed.add_field(name="🤖 Bot Creator", value="Richiedi un bot", inline=True)
+            embed.add_field(name="🖥️ Server Creator", value="Richiedi un server", inline=True)
+            embed.add_field(name="⚡ Server/Bot Creator", value="Richiedi entrambi", inline=True)
+            embed.add_field(name="🤝 Partnership", value="Richiedi partnership", inline=True)
         else:
             embed = discord.Embed(
                 title=embed_title,
                 description=embed_description,
                 color=discord.Color.blue()
             )
-            embed.add_field(name="🤖 Bot Creator", value="Request a bot creation", inline=True)
-            embed.add_field(name="🖥️ Server Creator", value="Request a server creation", inline=True)
-            embed.add_field(name="⚡ Server/Bot Creator", value="Request both services", inline=True)
-            embed.add_field(name="🤝 Partnership", value="Request a partnership", inline=True)
+            embed.add_field(name="🤖 Bot Creator", value="Request a bot", inline=True)
+            embed.add_field(name="🖥️ Server Creator", value="Request a server", inline=True)
+            embed.add_field(name="⚡ Server/Bot Creator", value="Request both", inline=True)
+            embed.add_field(name="🤝 Partnership", value="Request partnership", inline=True)
         
         from .ticket import TicketView
         view = TicketView()
@@ -91,46 +83,24 @@ class VerifyCog(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         self.bot.add_view(LanguageSelectView())
-        print("✅ VerifyCog pronto e view registrate")
+        print("✅ VerifyCog - View registrate")
     
-    @discord.app_commands.command(name="setup_verify", description="Setup del sistema di verifica nel canale")
+    @discord.app_commands.command(name="setup_verify", description="Crea il pannello di verifica")
     @discord.app_commands.checks.has_permissions(administrator=True)
     async def setup_verify(self, interaction: discord.Interaction):
-        """Setup del sistema di verifica"""
-        
+        """Crea il pannello di verifica"""
         embed = discord.Embed(
             title="NexaDev - Verifica",
             description="**Seleziona la tua lingua / Select your language:**\n\n"
-                       "**Italiano** - Seleziona per la sezione italiana\n"
-                       "**English** - Select for the English section\n\n"
-                       "*Clicca sul pulsante corrispondente alla tua lingua*",
+                       "**Italiano** - Per la sezione italiana\n"
+                       "**English** - For the English section",
             color=discord.Color.gold()
         )
         
-        embed.set_footer(text="NexaDev - Scegli la tua lingua / Choose your language")
-        
         view = LanguageSelectView()
-        
         await interaction.response.send_message(embed=embed, view=view)
-        await interaction.followup.send("✅ Sistema di verifica configurato con successo!", ephemeral=True)
-    
-    @discord.app_commands.command(name="test_verify", description="Test del sistema di verifica (solo admin)")
-    @discord.app_commands.checks.has_permissions(administrator=True)
-    async def test_verify(self, interaction: discord.Interaction):
-        """Test del sistema di verifica"""
-        
-        embed = discord.Embed(
-            title="🧪 Test Sistema Verifica",
-            description="Questo è un test del sistema di verifica.",
-            color=discord.Color.blue()
-        )
-        
-        embed.add_field(name="✅ Status", value="Sistema funzionante correttamente", inline=False)
-        embed.add_field(name="🔧 Comandi", value="`/setup_verify` - Configura il sistema\n`/test_verify` - Test del sistema", inline=False)
-        
-        view = LanguageSelectView()
-        
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send("✅ Pannello verifica creato!", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(VerifyCog(bot))
+    print("✅ VerifyCog caricato")
