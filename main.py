@@ -7,11 +7,12 @@ import threading
 import requests
 import time
 
+# Carica le variabili d'ambiente dal file .env
 load_dotenv()
 
 print("🚀 Avvio NexaDev Bot...")
 
-# Verifica solo le variabili essenziali
+# Verifica le variabili d'ambiente
 required_env_vars = ['DISCORD_TOKEN']
 
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
@@ -38,18 +39,18 @@ def run_flask():
 
 # Keep-alive per evitare sospensioni
 def keep_alive():
-    time.sleep(30)  # Aspetta che tutto si avvii
+    time.sleep(30)
     while True:
         try:
-            # Fai una richiesta a te stesso per mantenere attivo
-            requests.get(f"http://localhost:{os.getenv('PORT', 10000)}/health", timeout=5)
+            port = os.getenv('PORT', 10000)
+            requests.get(f"http://localhost:{port}/health", timeout=5)
             print("🔄 Keep-alive request inviata")
         except:
             print("⚠️ Keep-alive fallita")
-        time.sleep(300)  # Ogni 5 minuti
+        time.sleep(300)
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix='/', intents=intents)
+bot = commands.Bot(command_prefix='/', intents=intents, help_command=None)
 
 @bot.event
 async def on_ready():
@@ -57,6 +58,14 @@ async def on_ready():
     print(f'📊 Connesso a {len(bot.guilds)} server:')
     for guild in bot.guilds:
         print(f'   - {guild.name} (ID: {guild.id})')
+    
+    # Sincronizza i comandi slash
+    try:
+        synced = await bot.tree.sync()
+        print(f'🔧 Sincronizzati {len(synced)} comandi slash')
+    except Exception as e:
+        print(f'❌ Errore sincronizzazione comandi: {e}')
+    
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="NexaDev Tickets"))
 
 async def load_cogs():
@@ -79,6 +88,25 @@ async def load_cogs():
 async def on_connect():
     print('🔗 Connesso a Discord...')
     await load_cogs()
+
+# Comando di test
+@bot.tree.command(name="ping", description="Controlla se il bot è online")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message(f"🏓 Pong! Latency: {round(bot.latency * 1000)}ms")
+
+@bot.tree.command(name="setup", description="Setup del bot nel server")
+@commands.has_permissions(administrator=True)
+async def setup(interaction: discord.Interaction):
+    """Setup del bot nel server"""
+    embed = discord.Embed(
+        title="NexaDev - Setup",
+        description="Setup completato! Usa i comandi:\n\n"
+                   "**/setup_tickets** - Crea il pannello ticket\n"
+                   "**/setup_verify** - Crea il pannello verifica\n"
+                   "**/status** - Aggiorna stato progetto",
+        color=discord.Color.green()
+    )
+    await interaction.response.send_message(embed=embed)
 
 if __name__ == "__main__":
     # Avvia Flask
