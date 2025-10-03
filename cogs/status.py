@@ -35,7 +35,8 @@ class StatusCog(commands.Cog):
         
         return "⚪"
     
-    @discord.app_commands.command(name="status", description="Aggiorna lo status di un progetto")
+    # COMANDO ITALIANO
+    @discord.app_commands.command(name="status_ita", description="Aggiorna lo status di un progetto in italiano")
     @discord.app_commands.describe(
         nome="Tipo di progetto",
         modalità="Stato del progetto",
@@ -56,8 +57,38 @@ class StatusCog(commands.Cog):
         ]
     )
     @discord.app_commands.checks.has_permissions(administrator=True)
-    async def status(self, interaction: discord.Interaction, nome: str, modalità: str, persona: discord.Member, descrizione: str = None, invito: str = None):
-        """Aggiorna lo status di un progetto"""
+    async def status_ita(self, interaction: discord.Interaction, nome: str, modalità: str, persona: discord.Member, descrizione: str = None, invito: str = None):
+        """Aggiorna lo status di un progetto in italiano"""
+        await self._handle_status(interaction, nome, modalità, persona, descrizione, invito, "it")
+    
+    # COMANDO INGLESE
+    @discord.app_commands.command(name="status_eng", description="Update project status in English")
+    @discord.app_commands.describe(
+        name="Project type",
+        mode="Project status", 
+        person="Person for whom the project is (mention)",
+        description="Project description (optional)",
+        invite="Discord server invite link (optional)"
+    )
+    @discord.app_commands.choices(
+        name=[
+            discord.app_commands.Choice(name="server", value="server"),
+            discord.app_commands.Choice(name="bot", value="bot"),
+            discord.app_commands.Choice(name="server and bot", value="server e bot")
+        ],
+        mode=[
+            discord.app_commands.Choice(name="just started", value="appena iniziato"),
+            discord.app_commands.Choice(name="halfway", value="a metà"),
+            discord.app_commands.Choice(name="finished", value="finito")
+        ]
+    )
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    async def status_eng(self, interaction: discord.Interaction, name: str, mode: str, person: discord.Member, description: str = None, invite: str = None):
+        """Update project status in English"""
+        await self._handle_status(interaction, name, mode, person, description, invite, "en")
+    
+    async def _handle_status(self, interaction: discord.Interaction, nome: str, modalità: str, persona: discord.Member, descrizione: str = None, invito: str = None, language: str = "it"):
+        """Gestisce lo status in base alla lingua"""
         
         guild = interaction.guild
         
@@ -72,30 +103,130 @@ class StatusCog(commands.Cog):
         project_emoji_config = {
             "server": ["computer", "server", "desktop"],
             "bot": ["robot", "bot", "robot_face"],
-            "server e bot": ["zap", "lightning", "both"]
+            "server e bot": ["zap", "lightning", "both"],
+            "server and bot": ["zap", "lightning", "both"]
         }
         
         # Ottieni le emoji
         emoji_status = await self.get_custom_emoji(guild, status_emoji_config.get(modalità, ["yellow_circle"]))
         emoji_project = await self.get_custom_emoji(guild, project_emoji_config.get(nome, ["computer"]))
         
+        # Testi multilingua
+        texts = {
+            "it": {
+                "title": f"{emoji_project} {nome.title()} - {modalità.title()}",
+                "client": "👤 Cliente",
+                "status": "📊 Stato", 
+                "type": "🛠️ Tipo",
+                "description": "📝 Descrizione",
+                "invite": "🔗 Invito",
+                "updated_by": "Aggiornato da",
+                "success": "✅ Status aggiornato con successo!",
+                "channel_not_found": "❌ Canale status non trovato!",
+                "channel_not_configured": "⚠️ Canale status non configurato.",
+                "dm_error": "❌ Impossibile inviare DM a {mention}",
+                "progress_notification": "✅ Notifica di progresso inviata a {mention}",
+                "start_notification": "✅ Notifica di inizio inviata a {mention}",
+                "completion_notification": "✅ Notifica di completamento inviata in DM a {mention}",
+                "status_names": {
+                    "appena iniziato": "Appena Iniziato",
+                    "a metà": "A Metà", 
+                    "finito": "Finito"
+                },
+                "project_names": {
+                    "server": "Server",
+                    "bot": "Bot",
+                    "server e bot": "Server e Bot"
+                },
+                "dm_titles": {
+                    "appena iniziato": "🚀 Progetto Iniziato!",
+                    "a metà": "🔄 Progresso Progetto", 
+                    "finito": "🎉 Il tuo progetto è pronto!"
+                },
+                "dm_descriptions": {
+                    "appena iniziato": "Abbiamo iniziato a lavorare sul tuo **{nome}**!",
+                    "a metà": "Il tuo **{nome}** è a metà del sviluppo!",
+                    "finito": "Il tuo **{nome}** è stato completato!"
+                },
+                "dm_status": {
+                    "appena iniziato": "Appena Iniziato 🔄",
+                    "a metà": "In Lavorazione ⚠️", 
+                    "finito": "Completato ✅"
+                },
+                "dm_footers": {
+                    "appena iniziato": "NexaDev - Sviluppo in corso!",
+                    "a metà": "NexaDev - Ti terremo aggiornato!",
+                    "finito": "Grazie per aver scelto NexaDev!"
+                }
+            },
+            "en": {
+                "title": f"{emoji_project} {nome.replace('server e bot', 'Server & Bot').title()} - {self._get_english_status(modalità)}",
+                "client": "👤 Client", 
+                "status": "📊 Status",
+                "type": "🛠️ Type",
+                "description": "📝 Description",
+                "invite": "🔗 Invite",
+                "updated_by": "Updated by",
+                "success": "✅ Status updated successfully!",
+                "channel_not_found": "❌ Status channel not found!",
+                "channel_not_configured": "⚠️ Status channel not configured.",
+                "dm_error": "❌ Cannot send DM to {mention}",
+                "progress_notification": "✅ Progress notification sent to {mention}",
+                "start_notification": "✅ Start notification sent to {mention}",
+                "completion_notification": "✅ Completion notification sent via DM to {mention}",
+                "status_names": {
+                    "appena iniziato": "Just Started",
+                    "a metà": "Halfway",
+                    "finito": "Finished"
+                },
+                "project_names": {
+                    "server": "Server",
+                    "bot": "Bot", 
+                    "server e bot": "Server & Bot",
+                    "server and bot": "Server & Bot"
+                },
+                "dm_titles": {
+                    "appena iniziato": "🚀 Project Started!",
+                    "a metà": "🔄 Project Progress",
+                    "finito": "🎉 Your Project is Ready!"
+                },
+                "dm_descriptions": {
+                    "appena iniziato": "We've started working on your **{nome}**!",
+                    "a metà": "Your **{nome}** is halfway through development!",
+                    "finito": "Your **{nome}** has been completed!"
+                },
+                "dm_status": {
+                    "appena iniziato": "Just Started 🔄",
+                    "a metà": "In Progress ⚠️",
+                    "finito": "Completed ✅"
+                },
+                "dm_footers": {
+                    "appena iniziato": "NexaDev - Development in progress!",
+                    "a metà": "NexaDev - We'll keep you updated!",
+                    "finito": "Thank you for choosing NexaDev!"
+                }
+            }
+        }
+        
+        lang_texts = texts.get(language, texts["it"])
+        
         # Crea l'embed per il canale status
         embed = discord.Embed(
-            title=f"{emoji_project} {nome.title()} - {modalità.title()}",
+            title=lang_texts["title"],
             color=self.get_status_color(modalità)
         )
         
-        embed.add_field(name="👤 Cliente", value=persona.mention, inline=True)
-        embed.add_field(name="📊 Stato", value=f"{emoji_status} {modalità.title()}", inline=True)
-        embed.add_field(name="🛠️ Tipo", value=nome.title(), inline=True)
+        embed.add_field(name=lang_texts["client"], value=persona.mention, inline=True)
+        embed.add_field(name=lang_texts["status"], value=f"{emoji_status} {lang_texts['status_names'][modalità]}", inline=True)
+        embed.add_field(name=lang_texts["type"], value=lang_texts["project_names"].get(nome, nome.title()), inline=True)
         
         if descrizione:
-            embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
+            embed.add_field(name=lang_texts["description"], value=descrizione, inline=False)
             
         if invito:
-            embed.add_field(name="🔗 Invito", value=f"[Link Server]({invito})", inline=True)
+            embed.add_field(name=lang_texts["invite"], value=f"[{lang_texts['invite'].replace('🔗 ', '')}]({invito})", inline=True)
         
-        embed.set_footer(text=f"Aggiornato da {interaction.user.display_name}")
+        embed.set_footer(text=f"{lang_texts['updated_by']} {interaction.user.display_name}")
         
         # Invia nel canale status
         channel_id = get_env_var('STATUS_CHANNEL_ID')
@@ -103,75 +234,62 @@ class StatusCog(commands.Cog):
             channel = self.bot.get_channel(int(channel_id))
             if channel:
                 await channel.send(embed=embed)
-                await interaction.response.send_message("✅ Status aggiornato con successo!", ephemeral=True)
+                await interaction.response.send_message(lang_texts["success"], ephemeral=True)
                 
                 # Notifica la persona via DM in base allo stato
                 try:
+                    dm_embed = discord.Embed(
+                        title=lang_texts["dm_titles"][modalità],
+                        description=lang_texts["dm_descriptions"][modalità].format(nome=lang_texts["project_names"].get(nome, nome.title())),
+                        color=self.get_status_color(modalità)
+                    )
+                    dm_embed.add_field(name=lang_texts["status"], value=lang_texts["dm_status"][modalità], inline=True)
+                    dm_embed.add_field(name=lang_texts["type"], value=lang_texts["project_names"].get(nome, nome.title()), inline=True)
+                    
+                    if descrizione:
+                        dm_embed.add_field(name=lang_texts["description"], value=descrizione, inline=False)
+                    
+                    if invito and modalità == "finito":
+                        dm_embed.add_field(name=lang_texts["invite"], value=f"[{lang_texts['invite'].replace('🔗 ', '')}]({invito})", inline=False)
+                    
+                    dm_embed.set_footer(text=lang_texts["dm_footers"][modalità])
+                    
+                    await persona.send(embed=dm_embed)
+                    
+                    # Se c'è l'invito e il progetto è finito, invialo anche come messaggio separato
+                    if invito and modalità == "finito":
+                        invite_texts = {
+                            "it": f"**🔗 Invito al tuo server:** {invito}",
+                            "en": f"**🔗 Invite to your server:** {invito}"
+                        }
+                        await persona.send(invite_texts.get(language, invite_texts["it"]))
+                    
+                    # Messaggio di conferma
                     if modalità == "finito":
-                        dm_embed = discord.Embed(
-                            title="🎉 Il tuo progetto è pronto!",
-                            description=f"Il tuo **{nome}** è stato completato!",
-                            color=discord.Color.green()
-                        )
-                        dm_embed.add_field(name="📊 Stato", value="Completato ✅", inline=True)
-                        dm_embed.add_field(name="🛠️ Tipo", value=nome.title(), inline=True)
-                        
-                        if descrizione:
-                            dm_embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
-                        
-                        if invito:
-                            dm_embed.add_field(name="🔗 Invito Server", value=f"[Clicca qui per entrare]({invito})", inline=False)
-                        
-                        dm_embed.set_footer(text="Grazie per aver scelto NexaDev!")
-                        
-                        await persona.send(embed=dm_embed)
-                        
-                        # Se c'è l'invito, invialo anche come messaggio separato
-                        if invito:
-                            invite_msg = await persona.send(f"**🔗 Invito al tuo server:** {invito}")
-                        
-                        await interaction.followup.send(f"✅ Notifica di completamento inviata in DM a {persona.mention}", ephemeral=True)
-                    
+                        await interaction.followup.send(lang_texts["completion_notification"].format(mention=persona.mention), ephemeral=True)
                     elif modalità == "a metà":
-                        dm_embed = discord.Embed(
-                            title="🔄 Progresso Progetto",
-                            description=f"Il tuo **{nome}** è a metà del sviluppo!",
-                            color=discord.Color.orange()
-                        )
-                        dm_embed.add_field(name="📊 Stato", value="In Lavorazione ⚠️", inline=True)
-                        
-                        if descrizione:
-                            dm_embed.add_field(name="📝 Progresso", value=descrizione, inline=False)
-                        
-                        dm_embed.set_footer(text="NexaDev - Ti terremo aggiornato!")
-                        
-                        await persona.send(embed=dm_embed)
-                        await interaction.followup.send(f"✅ Notifica di progresso inviata a {persona.mention}", ephemeral=True)
-                    
+                        await interaction.followup.send(lang_texts["progress_notification"].format(mention=persona.mention), ephemeral=True)
                     elif modalità == "appena iniziato":
-                        dm_embed = discord.Embed(
-                            title="🚀 Progetto Iniziato!",
-                            description=f"Hiamo iniziato a lavorare sul tuo **{nome}**!",
-                            color=discord.Color.blue()
-                        )
-                        dm_embed.add_field(name="📊 Stato", value="Appena Iniziato 🔄", inline=True)
-                        
-                        if descrizione:
-                            dm_embed.add_field(name="📝 Dettagli", value=descrizione, inline=False)
-                        
-                        dm_embed.set_footer(text="NexaDev - Sviluppo in corso!")
-                        
-                        await persona.send(embed=dm_embed)
-                        await interaction.followup.send(f"✅ Notifica di inizio inviata a {persona.mention}", ephemeral=True)
+                        await interaction.followup.send(lang_texts["start_notification"].format(mention=persona.mention), ephemeral=True)
                         
                 except discord.Forbidden:
-                    await interaction.followup.send(f"❌ Impossibile inviare DM a {persona.mention}", ephemeral=True)
+                    await interaction.followup.send(lang_texts["dm_error"].format(mention=persona.mention), ephemeral=True)
             else:
-                await interaction.response.send_message("❌ Canale status non trovato!", ephemeral=True)
+                await interaction.response.send_message(lang_texts["channel_not_found"], ephemeral=True)
         else:
-            await interaction.response.send_message("⚠️ Canale status non configurato.", ephemeral=True)
+            await interaction.response.send_message(lang_texts["channel_not_configured"], ephemeral=True)
     
-    @discord.app_commands.command(name="statusfinito", description="Marca un progetto come finito e invia invito al cliente")
+    def _get_english_status(self, status: str) -> str:
+        """Converte lo status in inglese"""
+        status_map = {
+            "appena iniziato": "Just Started",
+            "a metà": "Halfway", 
+            "finito": "Finished"
+        }
+        return status_map.get(status, status.title())
+    
+    # COMANDI STATUS FINITO
+    @discord.app_commands.command(name="statusfinito_ita", description="Marca un progetto come finito e invia invito al cliente (Italiano)")
     @discord.app_commands.describe(
         persona="Persona per cui è il progetto (menzione)",
         descrizione="Descrizione del progetto",
@@ -186,8 +304,31 @@ class StatusCog(commands.Cog):
         ]
     )
     @discord.app_commands.checks.has_permissions(administrator=True)
-    async def statusfinito(self, interaction: discord.Interaction, persona: discord.Member, descrizione: str, invito: str, nome: str = "server"):
-        """Marca un progetto come finito e invia tutto al cliente"""
+    async def statusfinito_ita(self, interaction: discord.Interaction, persona: discord.Member, descrizione: str, invito: str, nome: str = "server"):
+        """Marca un progetto come finito in italiano"""
+        await self._handle_finished_status(interaction, persona, descrizione, invito, nome, "it")
+    
+    @discord.app_commands.command(name="statusfinished_eng", description="Mark project as finished and send invite to client (English)")
+    @discord.app_commands.describe(
+        person="Person for whom the project is (mention)",
+        description="Project description", 
+        invite="Discord server invite",
+        name="Project type (optional)"
+    )
+    @discord.app_commands.choices(
+        name=[
+            discord.app_commands.Choice(name="server", value="server"),
+            discord.app_commands.Choice(name="bot", value="bot"),
+            discord.app_commands.Choice(name="server and bot", value="server e bot")
+        ]
+    )
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    async def statusfinished_eng(self, interaction: discord.Interaction, person: discord.Member, description: str, invite: str, name: str = "server"):
+        """Mark project as finished in English"""
+        await self._handle_finished_status(interaction, person, description, invite, name, "en")
+    
+    async def _handle_finished_status(self, interaction: discord.Interaction, persona: discord.Member, descrizione: str, invito: str, nome: str, language: str):
+        """Gestisce lo status finito in base alla lingua"""
         
         guild = interaction.guild
         
@@ -206,32 +347,76 @@ class StatusCog(commands.Cog):
         emoji_status = await self.get_custom_emoji(guild, status_emoji_config.get("finito", ["green_circle"]))
         emoji_project = await self.get_custom_emoji(guild, project_emoji_config.get(nome, ["computer"]))
         
+        # Testi multilingua
+        texts = {
+            "it": {
+                "status_title": f"{emoji_project} {nome.title()} - Completato 🎉",
+                "client": "👤 Cliente",
+                "status": "📊 Stato",
+                "type": "🛠️ Tipo", 
+                "description": "📝 Descrizione",
+                "invite": "🔗 Invito",
+                "completed_by": "Completato da",
+                "dm_title": "🎉 Il tuo progetto è pronto!",
+                "dm_description": f"Il tuo **{nome.title()}** è stato completato con successo!",
+                "developer": "🛠️ Sviluppatore",
+                "footer": "Grazie per aver scelto NexaDev! 💫",
+                "invite_title": "🔗 Invito al Tuo Server",
+                "invite_description": f"**Clicca sul link qui sotto per entrare nel server:**\n{invito}",
+                "success": f"✅ Progetto marcato come completato e notifica inviata a {persona.mention}!",
+                "dm_error": f"❌ Impossibile inviare DM a {persona.mention}. Il progetto è stato comunque marcato come completato.",
+                "channel_error": "❌ Canale status non trovato!",
+                "config_error": "⚠️ Canale status non configurato."
+            },
+            "en": {
+                "status_title": f"{emoji_project} {nome.replace('server e bot', 'Server & Bot').title()} - Completed 🎉",
+                "client": "👤 Client",
+                "status": "📊 Status", 
+                "type": "🛠️ Type",
+                "description": "📝 Description",
+                "invite": "🔗 Invite",
+                "completed_by": "Completed by",
+                "dm_title": "🎉 Your Project is Ready!",
+                "dm_description": f"Your **{nome.replace('server e bot', 'Server & Bot').title()}** has been successfully completed!",
+                "developer": "🛠️ Developer",
+                "footer": "Thank you for choosing NexaDev! 💫",
+                "invite_title": "🔗 Invite to Your Server", 
+                "invite_description": f"**Click the link below to join the server:**\n{invito}",
+                "success": f"✅ Project marked as completed and notification sent to {persona.mention}!",
+                "dm_error": f"❌ Cannot send DM to {persona.mention}. Project was still marked as completed.",
+                "channel_error": "❌ Status channel not found!",
+                "config_error": "⚠️ Status channel not configured."
+            }
+        }
+        
+        lang_texts = texts.get(language, texts["it"])
+        
         # Embed per il canale status
         status_embed = discord.Embed(
-            title=f"{emoji_project} {nome.title()} - Completato 🎉",
+            title=lang_texts["status_title"],
             color=discord.Color.green()
         )
         
-        status_embed.add_field(name="👤 Cliente", value=persona.mention, inline=True)
-        status_embed.add_field(name="📊 Stato", value=f"{emoji_status} Completato", inline=True)
-        status_embed.add_field(name="🛠️ Tipo", value=nome.title(), inline=True)
-        status_embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
-        status_embed.add_field(name="🔗 Invito", value=f"[Link Server]({invito})", inline=True)
+        status_embed.add_field(name=lang_texts["client"], value=persona.mention, inline=True)
+        status_embed.add_field(name=lang_texts["status"], value=f"{emoji_status} Completato", inline=True)
+        status_embed.add_field(name=lang_texts["type"], value=nome.replace('server e bot', 'Server & Bot').title(), inline=True)
+        status_embed.add_field(name=lang_texts["description"], value=descrizione, inline=False)
+        status_embed.add_field(name=lang_texts["invite"], value=f"[{lang_texts['invite'].replace('🔗 ', '')}]({invito})", inline=True)
         
-        status_embed.set_footer(text=f"Completato da {interaction.user.display_name}")
+        status_embed.set_footer(text=f"{lang_texts['completed_by']} {interaction.user.display_name}")
         
         # Embed per il DM del cliente
         dm_embed = discord.Embed(
-            title="🎉 Il tuo progetto è pronto!",
-            description=f"Il tuo **{nome.title()}** è stato completato con successo!",
+            title=lang_texts["dm_title"],
+            description=lang_texts["dm_description"],
             color=discord.Color.green()
         )
         
-        dm_embed.add_field(name="📝 Descrizione", value=descrizione, inline=False)
-        dm_embed.add_field(name="🔗 Invito Server", value=f"[Clicca qui per entrare]({invito})", inline=True)
-        dm_embed.add_field(name="🛠️ Sviluppatore", value=interaction.user.mention, inline=True)
+        dm_embed.add_field(name=lang_texts["description"], value=descrizione, inline=False)
+        dm_embed.add_field(name=lang_texts["invite"], value=f"[{lang_texts['invite'].replace('🔗 ', '')}]({invito})", inline=True)
+        dm_embed.add_field(name=lang_texts["developer"], value=interaction.user.mention, inline=True)
         
-        dm_embed.set_footer(text="Grazie per aver scelto NexaDev! 💫")
+        dm_embed.set_footer(text=lang_texts["footer"])
         
         # Invia nel canale status
         channel_id = get_env_var('STATUS_CHANNEL_ID')
@@ -244,28 +429,22 @@ class StatusCog(commands.Cog):
                 try:
                     await persona.send(embed=dm_embed)
                     
-                    # Invia anche l'invito come messaggio separato (più visibile)
+                    # Invia anche l'invito come messaggio separato
                     invite_embed = discord.Embed(
-                        title="🔗 Invito al Tuo Server",
-                        description=f"**Clicca sul link qui sotto per entrare nel server:**\n{invito}",
+                        title=lang_texts["invite_title"],
+                        description=lang_texts["invite_description"],
                         color=discord.Color.blue()
                     )
                     await persona.send(embed=invite_embed)
                     
-                    await interaction.response.send_message(
-                        f"✅ Progetto marcato come completato e notifica inviata a {persona.mention}!", 
-                        ephemeral=True
-                    )
+                    await interaction.response.send_message(lang_texts["success"], ephemeral=True)
                     
                 except discord.Forbidden:
-                    await interaction.response.send_message(
-                        f"❌ Impossibile inviare DM a {persona.mention}. Il progetto è stato comunque marcato come completato.", 
-                        ephemeral=True
-                    )
+                    await interaction.response.send_message(lang_texts["dm_error"], ephemeral=True)
             else:
-                await interaction.response.send_message("❌ Canale status non trovato!", ephemeral=True)
+                await interaction.response.send_message(lang_texts["channel_error"], ephemeral=True)
         else:
-            await interaction.response.send_message("⚠️ Canale status non configurato.", ephemeral=True)
+            await interaction.response.send_message(lang_texts["config_error"], ephemeral=True)
     
     def get_status_color(self, status: str) -> discord.Color:
         colors = {
