@@ -10,68 +10,63 @@ def get_env_var(var_name, default=None):
         print(f"⚠️ Variabile {var_name} non trovata")
     return value or default
 
-class LanguageSelect(ui.Select):
-    def __init__(self, ticket_view):
-        options = [
-            discord.SelectOption(label="Italiano", value="it", emoji="🇮🇹"),
-            discord.SelectOption(label="English", value="en", emoji="🇬🇧")
-        ]
-        super().__init__(placeholder="Seleziona lingua / Select language", options=options)
-        self.ticket_view = ticket_view
+class TicketView(ui.View):
+    def __init__(self, language: str = "it"):
+        super().__init__(timeout=None)
+        self.language = language
+        
+        # Imposta le label dei pulsanti in base alla lingua
+        button_configs = {
+            "it": {
+                "bot_creator": {"label": "Bot Creator", "style": discord.ButtonStyle.primary},
+                "server_creator": {"label": "Server Creator", "style": discord.ButtonStyle.success},
+                "both_creator": {"label": "Server/Bot Creator", "style": discord.ButtonStyle.secondary},
+                "partnership": {"label": "Partnership", "style": discord.ButtonStyle.danger}
+            },
+            "en": {
+                "bot_creator": {"label": "Bot Creator", "style": discord.ButtonStyle.primary},
+                "server_creator": {"label": "Server Creator", "style": discord.ButtonStyle.success},
+                "both_creator": {"label": "Server/Bot Creator", "style": discord.ButtonStyle.secondary},
+                "partnership": {"label": "Partnership", "style": discord.ButtonStyle.danger}
+            }
+        }
+        
+        config = button_configs.get(language, button_configs["it"])
+        
+        # Crea i pulsanti con le label corrette
+        self.add_item(TicketButton("bot_creator", config["bot_creator"]["label"], config["bot_creator"]["style"], "bot_creator", language))
+        self.add_item(TicketButton("server_creator", config["server_creator"]["label"], config["server_creator"]["style"], "server_creator", language))
+        self.add_item(TicketButton("both_creator", config["both_creator"]["label"], config["both_creator"]["style"], "both_creator", language))
+        self.add_item(TicketButton("partnership", config["partnership"]["label"], config["partnership"]["style"], "partnership", language))
+
+class TicketButton(ui.Button):
+    def __init__(self, button_type: str, label: str, style: discord.ButtonStyle, custom_id: str, language: str):
+        super().__init__(label=label, style=style, custom_id=f"{custom_id}_{language}")
+        self.button_type = button_type
+        self.language = language
     
     async def callback(self, interaction: discord.Interaction):
-        await self.ticket_view.create_ticket(interaction, self.ticket_view.ticket_type, self.values[0])
-
-class TicketView(ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-    
-    @discord.ui.button(label='Bot Creator', style=discord.ButtonStyle.primary, custom_id='bot_creator')
-    async def bot_creator(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_language_selection(interaction, "Bot Creator")
-    
-    @discord.ui.button(label='Server Creator', style=discord.ButtonStyle.success, custom_id='server_creator')
-    async def server_creator(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_language_selection(interaction, "Server Creator")
-    
-    @discord.ui.button(label='Server/Bot Creator', style=discord.ButtonStyle.secondary, custom_id='both_creator')
-    async def both_creator(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_language_selection(interaction, "Server/Bot Creator")
-    
-    @discord.ui.button(label='Partnership', style=discord.ButtonStyle.danger, custom_id='partnership')
-    async def partnership(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_language_selection(interaction, "Partnership")
-    
-    async def show_language_selection(self, interaction: discord.Interaction, ticket_type: str):
-        self.ticket_type = ticket_type
-        view = ui.View()
-        view.add_item(LanguageSelect(self))
-        
-        embed = discord.Embed(
-            title="Seleziona lingua / Select language",
-            description="Scegli la lingua per il ticket / Choose the language for the ticket",
-            color=discord.Color.blue()
-        )
-        
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await self.create_ticket(interaction, self.button_type, self.language)
     
     async def create_ticket(self, interaction: discord.Interaction, ticket_type: str, language: str):
         guild = interaction.guild
         staff_role_id = get_env_var('STAFF_ROLE_ID')
         
         if not staff_role_id:
-            await interaction.response.send_message(
-                "❌ Errore di configurazione: ruolo staff non configurato.\n❌ Configuration error: staff role not configured.",
-                ephemeral=True
-            )
+            error_msg = {
+                "it": "❌ Errore di configurazione: ruolo staff non configurato.",
+                "en": "❌ Configuration error: staff role not configured."
+            }
+            await interaction.response.send_message(error_msg.get(language, error_msg["it"]), ephemeral=True)
             return
         
         staff_role = guild.get_role(int(staff_role_id))
         if not staff_role:
-            await interaction.response.send_message(
-                "❌ Ruolo staff non trovato nel server.\n❌ Staff role not found in the server.",
-                ephemeral=True
-            )
+            error_msg = {
+                "it": "❌ Ruolo staff non trovato nel server.",
+                "en": "❌ Staff role not found in the server."
+            }
+            await interaction.response.send_message(error_msg.get(language, error_msg["it"]), ephemeral=True)
             return
         
         # Crea il canale ticket / Create ticket channel
@@ -81,49 +76,86 @@ class TicketView(ui.View):
             staff_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
         }
         
-        channel_name = f"ticket-{ticket_type.lower().replace('/', '-')}-{interaction.user.name}"
+        # Nomi dei tipi di ticket per il nome del canale
+        type_names = {
+            "bot_creator": "Bot Creator",
+            "server_creator": "Server Creator", 
+            "both_creator": "Server-Bot Creator",
+            "partnership": "Partnership"
+        }
+        
+        channel_name = f"ticket-{type_names[ticket_type].lower().replace(' ', '-')}-{interaction.user.name}"
         channel = await guild.create_text_channel(
             name=channel_name,
             overwrites=overwrites,
-            topic=f"Ticket {ticket_type} - {language.upper()} - {interaction.user.display_name}"
+            topic=f"Ticket {type_names[ticket_type]} - {language.upper()} - {interaction.user.display_name}"
         )
         
         # Testi multilingua / Multilingual texts
         texts = {
             "it": {
-                "title": f"Ticket {ticket_type}",
-                "description": f"Grazie per aver aperto un ticket {ticket_type}!\nLo staff ti aiuterà al più presto.",
+                "bot_creator": {
+                    "title": "Ticket Bot Creator",
+                    "description": "Grazie per aver aperto un ticket per la creazione di un bot!\nLo staff ti aiuterà al più presto."
+                },
+                "server_creator": {
+                    "title": "Ticket Server Creator", 
+                    "description": "Grazie per aver aperto un ticket per la creazione di un server!\nLo staff ti aiuterà al più presto."
+                },
+                "both_creator": {
+                    "title": "Ticket Server/Bot Creator",
+                    "description": "Grazie per aver aperto un ticket per entrambi i servizi!\nLo staff ti aiuterà al più presto."
+                },
+                "partnership": {
+                    "title": "Ticket Partnership",
+                    "description": "Grazie per aver aperto un ticket per partnership!\nLo staff ti aiuterà al più presto."
+                },
                 "created_by": "Creato da",
                 "type": "Tipo",
                 "language": "Lingua",
                 "success": f"✅ Ticket creato! {channel.mention}"
             },
             "en": {
-                "title": f"Ticket {ticket_type}",
-                "description": f"Thank you for opening a {ticket_type} ticket!\nStaff will help you as soon as possible.",
+                "bot_creator": {
+                    "title": "Bot Creator Ticket",
+                    "description": "Thank you for opening a bot creation ticket!\nStaff will help you as soon as possible."
+                },
+                "server_creator": {
+                    "title": "Server Creator Ticket",
+                    "description": "Thank you for opening a server creation ticket!\nStaff will help you as soon as possible."
+                },
+                "both_creator": {
+                    "title": "Server/Bot Creator Ticket",
+                    "description": "Thank you for opening a ticket for both services!\nStaff will help you as soon as possible."
+                },
+                "partnership": {
+                    "title": "Partnership Ticket", 
+                    "description": "Thank you for opening a partnership ticket!\nStaff will help you as soon as possible."
+                },
                 "created_by": "Created by",
-                "type": "Type", 
-                "language": "Language",
+                "type": "Type",
+                "language": "Language", 
                 "success": f"✅ Ticket created! {channel.mention}"
             }
         }
         
         lang_texts = texts.get(language, texts["it"])
+        ticket_texts = lang_texts.get(ticket_type, lang_texts["bot_creator"])
         
         # Embed del ticket / Ticket embed
         embed = discord.Embed(
-            title=lang_texts["title"],
-            description=lang_texts["description"],
+            title=ticket_texts["title"],
+            description=ticket_texts["description"],
             color=discord.Color.blue()
         )
         embed.add_field(name=lang_texts["created_by"], value=interaction.user.mention, inline=True)
-        embed.add_field(name=lang_texts["type"], value=ticket_type, inline=True)
+        embed.add_field(name=lang_texts["type"], value=type_names[ticket_type], inline=True)
         embed.add_field(name=lang_texts["language"], value="Italiano" if language == "it" else "English", inline=True)
         
         view = TicketManagementView(language)
         
         await channel.send(f"{staff_role.mention} {interaction.user.mention}", embed=embed, view=view)
-        await interaction.followup.send(lang_texts["success"], ephemeral=True)
+        await interaction.response.send_message(lang_texts["success"], ephemeral=True)
 
 class TicketManagementView(ui.View):
     def __init__(self, language: str = "it"):
@@ -133,34 +165,41 @@ class TicketManagementView(ui.View):
         # Testi multilingua per i pulsanti / Multilingual texts for buttons
         button_texts = {
             "it": {
-                "claim": "Claim",
-                "close": "Chiudi"
+                "claim": {"label": "Claim", "style": discord.ButtonStyle.success},
+                "close": {"label": "Chiudi", "style": discord.ButtonStyle.danger}
             },
             "en": {
-                "claim": "Claim", 
-                "close": "Close"
+                "claim": {"label": "Claim", "style": discord.ButtonStyle.success},
+                "close": {"label": "Close", "style": discord.ButtonStyle.danger}
             }
         }
         
         texts = button_texts.get(language, button_texts["it"])
         
-        # Modifica i pulsanti con le label corrette / Modify buttons with correct labels
-        for item in self.children:
-            if isinstance(item, discord.ui.Button):
-                if item.custom_id == 'claim_ticket':
-                    item.label = texts["claim"]
-                elif item.custom_id == 'close_ticket':
-                    item.label = texts["close"]
+        # Aggiungi pulsanti con le label corrette
+        self.add_item(ManagementButton("claim", texts["claim"]["label"], texts["claim"]["style"], f"claim_ticket_{language}", language))
+        self.add_item(ManagementButton("close", texts["close"]["label"], texts["close"]["style"], f"close_ticket_{language}", language))
+
+class ManagementButton(ui.Button):
+    def __init__(self, button_type: str, label: str, style: discord.ButtonStyle, custom_id: str, language: str):
+        super().__init__(label=label, style=style, custom_id=custom_id)
+        self.button_type = button_type
+        self.language = language
     
-    @discord.ui.button(label='Claim', style=discord.ButtonStyle.success, custom_id='claim_ticket')
-    async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def callback(self, interaction: discord.Interaction):
+        if self.button_type == "claim":
+            await self.claim_ticket(interaction)
+        elif self.button_type == "close":
+            await self.close_ticket(interaction)
+    
+    async def claim_ticket(self, interaction: discord.Interaction):
         texts = {
             "it": {
                 "title": "Ticket Preso in Carico",
                 "description": f"Il ticket è stato preso in carico da {interaction.user.mention}"
             },
             "en": {
-                "title": "Ticket Claimed", 
+                "title": "Ticket Claimed",
                 "description": f"The ticket has been claimed by {interaction.user.mention}"
             }
         }
@@ -174,8 +213,7 @@ class TicketManagementView(ui.View):
         )
         await interaction.response.send_message(embed=embed)
     
-    @discord.ui.button(label='Close', style=discord.ButtonStyle.danger, custom_id='close_ticket')
-    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def close_ticket(self, interaction: discord.Interaction):
         texts = {
             "it": {
                 "title": "Ticket Chiuso",
@@ -204,46 +242,48 @@ class TicketCog(commands.Cog):
     
     @commands.Cog.listener()
     async def on_ready(self):
-        self.bot.add_view(TicketView())
-        # Registra le view per tutte le lingue / Register views for all languages
+        # Registra tutte le view per entrambe le lingue
+        self.bot.add_view(TicketView("it"))
+        self.bot.add_view(TicketView("en"))
         self.bot.add_view(TicketManagementView("it"))
         self.bot.add_view(TicketManagementView("en"))
     
-    @discord.app_commands.command(name="setup_tickets", description="Setup del sistema di ticket / Setup ticket system")
+    @discord.app_commands.command(name="setup_tickets_ita", description="Setup del sistema di ticket in italiano")
     @discord.app_commands.checks.has_permissions(administrator=True)
-    async def setup_tickets(self, interaction: discord.Interaction):
-        """Setup del sistema di ticket in multilingua / Multilingual ticket system setup"""
+    async def setup_tickets_ita(self, interaction: discord.Interaction):
+        """Setup del sistema di ticket in italiano"""
         
-        # Embed bilingue / Bilingual embed
         embed = discord.Embed(
-            title="NexaDev - Supporto / Support",
-            description="Seleziona il tipo di assistenza di cui hai bisogno:\nSelect the type of assistance you need:",
+            title="NexaDev - Supporto",
+            description="Seleziona il tipo di assistenza di cui hai bisogno:",
             color=discord.Color.blue()
         )
         
-        # Campi bilingui / Bilingual fields
-        embed.add_field(
-            name="Bot Creator", 
-            value="Richiedi la creazione di un bot\nRequest bot creation", 
-            inline=True
-        )
-        embed.add_field(
-            name="Server Creator", 
-            value="Richiedi la creazione di un server\nRequest server creation", 
-            inline=True
-        )
-        embed.add_field(
-            name="Server/Bot Creator", 
-            value="Richiedi entrambi i servizi\nRequest both services", 
-            inline=True
-        )
-        embed.add_field(
-            name="Partnership", 
-            value="Richiedi una partnership\nRequest a partnership", 
-            inline=True
+        embed.add_field(name="Bot Creator", value="Richiedi la creazione di un bot", inline=True)
+        embed.add_field(name="Server Creator", value="Richiedi la creazione di un server", inline=True)
+        embed.add_field(name="Server/Bot Creator", value="Richiedi entrambi i servizi", inline=True)
+        embed.add_field(name="Partnership", value="Richiedi una partnership", inline=True)
+        
+        view = TicketView("it")
+        await interaction.response.send_message(embed=embed, view=view)
+    
+    @discord.app_commands.command(name="setup_tickets_eng", description="Setup ticket system in English")
+    @discord.app_commands.checks.has_permissions(administrator=True)
+    async def setup_tickets_eng(self, interaction: discord.Interaction):
+        """Setup ticket system in English"""
+        
+        embed = discord.Embed(
+            title="NexaDev - Support",
+            description="Select the type of assistance you need:",
+            color=discord.Color.blue()
         )
         
-        view = TicketView()
+        embed.add_field(name="Bot Creator", value="Request bot creation", inline=True)
+        embed.add_field(name="Server Creator", value="Request server creation", inline=True)
+        embed.add_field(name="Server/Bot Creator", value="Request both services", inline=True)
+        embed.add_field(name="Partnership", value="Request a partnership", inline=True)
+        
+        view = TicketView("en")
         await interaction.response.send_message(embed=embed, view=view)
 
 async def setup(bot):
