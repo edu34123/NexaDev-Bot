@@ -14,26 +14,31 @@ class StatusCog(commands.Cog):
     
     async def get_custom_emoji(self, guild: discord.Guild, emoji_names: list) -> str:
         """Cerca emoji personalizzate nel server con fallback"""
+        # Prima cerca le emoji personalizzate nel server
         for emoji_name in emoji_names:
             for emoji in guild.emojis:
                 if emoji.name.lower() == emoji_name.lower():
                     return str(emoji)
         
-        # Fallback a Unicode
+        # Fallback a Unicode solo se non trova emoji personalizzate
         fallback_emojis = {
             "red_loading1": "🟡",
             "loading_orange": "🟠", 
             "green_loading1": "🟢",
             "computer": "🖥️",
             "robot": "🤖",
-            "zap": "⚡"
+            "zap": "⚡",
+            "caricamento": "⏳",
+            "loading": "⏳",
+            "waiting": "⏳",
+            "hourglass": "⏳"
         }
         
         for emoji_name in emoji_names:
             if emoji_name.lower() in fallback_emojis:
                 return fallback_emojis[emoji_name.lower()]
         
-        return "⚪"
+        return "⚪"  # Fallback ultima risorsa
     
     # COMANDO ITALIANO
     @discord.app_commands.command(name="status_ita", description="Aggiorna lo status di un progetto in italiano")
@@ -51,6 +56,7 @@ class StatusCog(commands.Cog):
             discord.app_commands.Choice(name="server e bot", value="server e bot")
         ],
         modalità=[
+            discord.app_commands.Choice(name="in attesa", value="in attesa"),
             discord.app_commands.Choice(name="appena iniziato", value="appena iniziato"),
             discord.app_commands.Choice(name="a metà", value="a metà"),
             discord.app_commands.Choice(name="finito", value="finito")
@@ -77,6 +83,7 @@ class StatusCog(commands.Cog):
             discord.app_commands.Choice(name="server and bot", value="server e bot")
         ],
         mode=[
+            discord.app_commands.Choice(name="waiting", value="in attesa"),
             discord.app_commands.Choice(name="just started", value="appena iniziato"),
             discord.app_commands.Choice(name="halfway", value="a metà"),
             discord.app_commands.Choice(name="finished", value="finito")
@@ -92,14 +99,15 @@ class StatusCog(commands.Cog):
         
         guild = interaction.guild
         
-        # Configurazione emoji di stato
+        # Configurazione emoji di stato - PRIMA cerca queste nel server
         status_emoji_config = {
-            "appena iniziato": ["Red_Loading1", "red_loading1", "yellow_circle"],
-            "a metà": ["loading_orange", "orange_circle"], 
-            "finito": ["Green_Loading1", "green_loading1", "green_circle"]
+            "in attesa": ["caricamento", "loading", "waiting", "hourglass"],
+            "appena iniziato": ["red_loading1", "redloading", "loading_red"],
+            "a metà": ["loading_orange", "orange_loading", "loading_orange"], 
+            "finito": ["green_loading1", "greenloading", "loading_green"]
         }
         
-        # Configurazione emoji progetti
+        # Configurazione emoji progetti - PRIMA cerca queste nel server
         project_emoji_config = {
             "server": ["computer", "server", "desktop"],
             "bot": ["robot", "bot", "robot_face"],
@@ -107,7 +115,7 @@ class StatusCog(commands.Cog):
             "server and bot": ["zap", "lightning", "both"]
         }
         
-        # Ottieni le emoji
+        # Ottieni le emoji - PRIMA cerca nel server
         emoji_status = await self.get_custom_emoji(guild, status_emoji_config.get(modalità, ["yellow_circle"]))
         emoji_project = await self.get_custom_emoji(guild, project_emoji_config.get(nome, ["computer"]))
         
@@ -127,8 +135,10 @@ class StatusCog(commands.Cog):
                 "dm_error": "❌ Impossibile inviare DM a {mention}",
                 "progress_notification": "✅ Notifica di progresso inviata a {mention}",
                 "start_notification": "✅ Notifica di inizio inviata a {mention}",
+                "waiting_notification": "✅ Notifica di attesa inviata a {mention}",
                 "completion_notification": "✅ Notifica di completamento inviata in DM a {mention}",
                 "status_names": {
+                    "in attesa": "In Attesa",
                     "appena iniziato": "Appena Iniziato",
                     "a metà": "A Metà", 
                     "finito": "Finito"
@@ -139,21 +149,25 @@ class StatusCog(commands.Cog):
                     "server e bot": "Server e Bot"
                 },
                 "dm_titles": {
-                    "appena iniziato": "🚀 Progetto Iniziato!",
-                    "a metà": "🔄 Progresso Progetto", 
-                    "finito": "🎉 Il tuo progetto è pronto!"
+                    "in attesa": f"{emoji_status} Progetto in Attesa",
+                    "appena iniziato": f"{emoji_status} Progetto Iniziato!",
+                    "a metà": f"{emoji_status} Progresso Progetto", 
+                    "finito": f"{emoji_status} Il tuo progetto è pronto!"
                 },
                 "dm_descriptions": {
+                    "in attesa": "Il tuo **{nome}** è in attesa di essere preso in carico!",
                     "appena iniziato": "Abbiamo iniziato a lavorare sul tuo **{nome}**!",
                     "a metà": "Il tuo **{nome}** è a metà del sviluppo!",
                     "finito": "Il tuo **{nome}** è stato completato!"
                 },
                 "dm_status": {
-                    "appena iniziato": "Appena Iniziato 🔄",
-                    "a metà": "In Lavorazione ⚠️", 
-                    "finito": "Completato ✅"
+                    "in attesa": "In Attesa",
+                    "appena iniziato": "Appena Iniziato",
+                    "a metà": "In Lavorazione", 
+                    "finito": "Completato"
                 },
                 "dm_footers": {
+                    "in attesa": "NexaDev - Ti contatteremo presto!",
                     "appena iniziato": "NexaDev - Sviluppo in corso!",
                     "a metà": "NexaDev - Ti terremo aggiornato!",
                     "finito": "Grazie per aver scelto NexaDev!"
@@ -173,8 +187,10 @@ class StatusCog(commands.Cog):
                 "dm_error": "❌ Cannot send DM to {mention}",
                 "progress_notification": "✅ Progress notification sent to {mention}",
                 "start_notification": "✅ Start notification sent to {mention}",
+                "waiting_notification": "✅ Waiting notification sent to {mention}",
                 "completion_notification": "✅ Completion notification sent via DM to {mention}",
                 "status_names": {
+                    "in attesa": "Waiting",
                     "appena iniziato": "Just Started",
                     "a metà": "Halfway",
                     "finito": "Finished"
@@ -186,21 +202,25 @@ class StatusCog(commands.Cog):
                     "server and bot": "Server & Bot"
                 },
                 "dm_titles": {
-                    "appena iniziato": "🚀 Project Started!",
-                    "a metà": "🔄 Project Progress",
-                    "finito": "🎉 Your Project is Ready!"
+                    "in attesa": f"{emoji_status} Project Waiting",
+                    "appena iniziato": f"{emoji_status} Project Started!",
+                    "a metà": f"{emoji_status} Project Progress",
+                    "finito": f"{emoji_status} Your Project is Ready!"
                 },
                 "dm_descriptions": {
+                    "in attesa": "Your **{nome}** is waiting to be taken over!",
                     "appena iniziato": "We've started working on your **{nome}**!",
                     "a metà": "Your **{nome}** is halfway through development!",
                     "finito": "Your **{nome}** has been completed!"
                 },
                 "dm_status": {
-                    "appena iniziato": "Just Started 🔄",
-                    "a metà": "In Progress ⚠️",
-                    "finito": "Completed ✅"
+                    "in attesa": "Waiting",
+                    "appena iniziato": "Just Started",
+                    "a metà": "In Progress",
+                    "finito": "Completed"
                 },
                 "dm_footers": {
+                    "in attesa": "NexaDev - We'll contact you soon!",
                     "appena iniziato": "NexaDev - Development in progress!",
                     "a metà": "NexaDev - We'll keep you updated!",
                     "finito": "Thank you for choosing NexaDev!"
@@ -231,12 +251,11 @@ class StatusCog(commands.Cog):
         # CANALI SEPARATI PER LINGUA
         if language == "it":
             channel_id = get_env_var('STATUS_CHANNEL_ITA_ID')
-            fallback_channel_id = get_env_var('STATUS_CHANNEL_ID')  # Fallback al canale generale
+            fallback_channel_id = get_env_var('STATUS_CHANNEL_ID')
         else:  # en
             channel_id = get_env_var('STATUS_CHANNEL_ENG_ID')
-            fallback_channel_id = get_env_var('STATUS_CHANNEL_ID')  # Fallback al canale generale
+            fallback_channel_id = get_env_var('STATUS_CHANNEL_ID')
         
-        # Usa il canale specifico per la lingua, altrimenti fallback
         target_channel_id = channel_id or fallback_channel_id
         
         if target_channel_id:
@@ -252,7 +271,7 @@ class StatusCog(commands.Cog):
                         description=lang_texts["dm_descriptions"][modalità].format(nome=lang_texts["project_names"].get(nome, nome.title())),
                         color=self.get_status_color(modalità)
                     )
-                    dm_embed.add_field(name=lang_texts["status"], value=lang_texts["dm_status"][modalità], inline=True)
+                    dm_embed.add_field(name=lang_texts["status"], value=f"{emoji_status} {lang_texts['dm_status'][modalità]}", inline=True)
                     dm_embed.add_field(name=lang_texts["type"], value=lang_texts["project_names"].get(nome, nome.title()), inline=True)
                     
                     if descrizione:
@@ -280,6 +299,8 @@ class StatusCog(commands.Cog):
                         await interaction.followup.send(lang_texts["progress_notification"].format(mention=persona.mention), ephemeral=True)
                     elif modalità == "appena iniziato":
                         await interaction.followup.send(lang_texts["start_notification"].format(mention=persona.mention), ephemeral=True)
+                    elif modalità == "in attesa":
+                        await interaction.followup.send(lang_texts["waiting_notification"].format(mention=persona.mention), ephemeral=True)
                         
                 except discord.Forbidden:
                     await interaction.followup.send(lang_texts["dm_error"].format(mention=persona.mention), ephemeral=True)
@@ -291,6 +312,7 @@ class StatusCog(commands.Cog):
     def _get_english_status(self, status: str) -> str:
         """Converte lo status in inglese"""
         status_map = {
+            "in attesa": "Waiting",
             "appena iniziato": "Just Started",
             "a metà": "Halfway", 
             "finito": "Finished"
@@ -341,9 +363,9 @@ class StatusCog(commands.Cog):
         
         guild = interaction.guild
         
-        # Configurazione emoji
+        # Configurazione emoji - PRIMA cerca nel server
         status_emoji_config = {
-            "finito": ["Green_Loading1", "green_loading1", "green_circle"]
+            "finito": ["green_loading1", "greenloading", "loading_green"]
         }
         
         project_emoji_config = {
@@ -352,21 +374,21 @@ class StatusCog(commands.Cog):
             "server e bot": ["zap", "lightning", "both"]
         }
         
-        # Ottieni le emoji
+        # Ottieni le emoji - PRIMA cerca nel server
         emoji_status = await self.get_custom_emoji(guild, status_emoji_config.get("finito", ["green_circle"]))
         emoji_project = await self.get_custom_emoji(guild, project_emoji_config.get(nome, ["computer"]))
         
         # Testi multilingua
         texts = {
             "it": {
-                "status_title": f"{emoji_project} {nome.title()} - Completato 🎉",
+                "status_title": f"{emoji_project} {nome.title()} - Completato {emoji_status}",
                 "client": "👤 Cliente",
                 "status": "📊 Stato",
                 "type": "🛠️ Tipo", 
                 "description": "📝 Descrizione",
                 "invite": "🔗 Invito",
                 "completed_by": "Completato da",
-                "dm_title": "🎉 Il tuo progetto è pronto!",
+                "dm_title": f"{emoji_status} Il tuo progetto è pronto!",
                 "dm_description": f"Il tuo **{nome.title()}** è stato completato con successo!",
                 "developer": "🛠️ Sviluppatore",
                 "footer": "Grazie per aver scelto NexaDev! 💫",
@@ -378,14 +400,14 @@ class StatusCog(commands.Cog):
                 "config_error": "⚠️ Canale status italiano non configurato."
             },
             "en": {
-                "status_title": f"{emoji_project} {nome.replace('server e bot', 'Server & Bot').title()} - Completed 🎉",
+                "status_title": f"{emoji_project} {nome.replace('server e bot', 'Server & Bot').title()} - Completed {emoji_status}",
                 "client": "👤 Client",
                 "status": "📊 Status", 
                 "type": "🛠️ Type",
                 "description": "📝 Description",
                 "invite": "🔗 Invite",
                 "completed_by": "Completed by",
-                "dm_title": "🎉 Your Project is Ready!",
+                "dm_title": f"{emoji_status} Your Project is Ready!",
                 "dm_description": f"Your **{nome.replace('server e bot', 'Server & Bot').title()}** has been successfully completed!",
                 "developer": "🛠️ Developer",
                 "footer": "Thank you for choosing NexaDev! 💫",
@@ -465,6 +487,7 @@ class StatusCog(commands.Cog):
     
     def get_status_color(self, status: str) -> discord.Color:
         colors = {
+            "in attesa": discord.Color.light_gray(),
             "appena iniziato": discord.Color.yellow(),
             "a metà": discord.Color.orange(),
             "finito": discord.Color.green()
@@ -481,24 +504,25 @@ class StatusCog(commands.Cog):
             await interaction.response.send_message("❌ Nessuna emoji personalizzata trovata nel server.", ephemeral=True)
             return
         
+        # Crea una lista di emoji con i loro nomi
+        emoji_list = []
+        for emoji in emojis[:20]:  # Mostra massimo 20 emoji
+            emoji_list.append(f"{emoji} `:{emoji.name}:`")
+        
         embed = discord.Embed(
-            title="🎨 Emoji del Server",
-            description="Ecco le emoji disponibili:",
+            title="🎨 Emoji del Server Disponibili",
+            description="Ecco le emoji che puoi usare nei comandi status:",
             color=discord.Color.blue()
         )
         
-        emoji_list = []
-        for emoji in emojis[:15]:
-            emoji_list.append(f"{emoji} `:{emoji.name}:`")
-        
         embed.add_field(
-            name="Emoji",
+            name="Emoji (clicca per copiare il nome)",
             value="\n".join(emoji_list),
             inline=False
         )
         
-        if len(emojis) > 15:
-            embed.set_footer(text=f"e altre {len(emojis) - 15} emoji...")
+        if len(emojis) > 20:
+            embed.set_footer(text=f"e altre {len(emojis) - 20} emoji...")
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
