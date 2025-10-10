@@ -46,7 +46,7 @@ intents.members = True
 class SecurityBot(commands.Bot):
     def __init__(self):
         super().__init__(
-            command_prefix="!",
+            command_prefix="/",
             intents=intents,
             help_command=None
         )
