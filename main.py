@@ -50,141 +50,135 @@ class SecurityBot(commands.Bot):
             intents=intents,
             help_command=None
         )
+        self.synced = False
 
     async def setup_hook(self):
         """Setup hook che viene chiamato all'avvio"""
         logger.info("🔄 Setup hook avviato...")
         
-        # Prima verifica quali file esistono
-        await self.debug_files()
-        
-        # Poi carica le cog
+        # Carica le cog
         await self.load_cogs()
         
-        # Infine sincronizza i comandi
+        # Sincronizza i comandi
         await self.sync_commands()
 
-    async def debug_files(self):
-        """Debug dei file nella directory corrente"""
-        logger.info("📁 Scansione file nella directory corrente:")
-        current_dir = os.listdir('.')
-        py_files = [f for f in current_dir if f.endswith('.py')]
-        
-        logger.info(f"📝 Tutti i file .py: {len(py_files)}")
-        for file in py_files:
-            logger.info(f"  - {file}")
-
     async def load_cogs(self):
-        """Carica tutte le cog con gestione errori migliorata"""
-        # Lista dei file Python che contengono cog (escludi main.py e keep_alive.py)
-        cog_files = [
-            'ticket_manager',  # Questo è il file che hai
-            # Aggiungi altri file qui se ne hai
-        ]
-        
-        logger.info("🔄 Caricamento cog...")
+        """Carica tutte le cog"""
+        cog_files = ['ticket_manager']
         
         for cog_name in cog_files:
             try:
-                # Verifica se il file esiste
-                if not os.path.exists(f"{cog_name}.py"):
-                    logger.warning(f"⚠️ File {cog_name}.py non trovato, salto...")
-                    continue
-                
-                # Prova a caricare la cog
-                await self.load_extension(cog_name)
-                logger.info(f"✅ {cog_name} caricata con successo")
-                
-            except commands.ExtensionNotFound:
-                logger.error(f"❌ Cog {cog_name} non trovata")
-            except commands.NoEntryPointError:
-                logger.error(f"❌ Cog {cog_name} non ha una funzione setup()")
-            except commands.ExtensionFailed as e:
-                logger.error(f"❌ Errore nell'inizializzazione di {cog_name}: {e}")
+                if os.path.exists(f"{cog_name}.py"):
+                    await self.load_extension(cog_name)
+                    logger.info(f"✅ {cog_name} caricata")
+                else:
+                    logger.warning(f"⚠️ {cog_name}.py non trovato")
             except Exception as e:
-                logger.error(f"❌ Errore imprevisto caricando {cog_name}: {e}")
+                logger.error(f"❌ Errore caricamento {cog_name}: {e}")
 
     async def sync_commands(self):
         """Sincronizza i comandi slash"""
-        logger.info("🔄 Sincronizzazione comandi slash...")
         try:
-            # Sincronizza comandi globali
-            synced = await self.tree.sync()
-            logger.info(f'✅ {len(synced)} comandi slash sincronizzati globalmente!')
-            
-            # Log dei comandi disponibili
-            if synced:
-                logger.info("📝 Comandi slash disponibili:")
-                for cmd in synced:
+            if not self.synced:
+                synced = await self.tree.sync()
+                self.synced = True
+                logger.info(f'✅ {len(synced)} comandi slash sincronizzati!')
+                
+                # Mostra tutti i comandi
+                all_commands = self.tree.get_commands()
+                logger.info("📝 Comandi globali disponibili:")
+                for cmd in all_commands:
                     logger.info(f"  - /{cmd.name}")
             else:
-                logger.warning("⚠️ Nessun comando slash sincronizzato")
+                logger.info("ℹ️ Comandi già sincronizzati")
                 
         except Exception as e:
-            logger.error(f'❌ Errore sincronizzazione comandi: {e}')
+            logger.error(f'❌ Errore sincronizzazione: {e}')
 
     async def on_ready(self):
         """Evento quando il bot è pronto"""
         logger.info(f'✅ {self.user} è online!')
         logger.info(f'📊 Connesso a {len(self.guilds)} server')
         
-        # Imposta lo status del bot
+        # Imposta lo status
         activity = discord.Activity(
             type=discord.ActivityType.watching,
-            name="la sicurezza del server"
+            name="la sicurezza | /help"
         )
         await self.change_presence(activity=activity)
         
-        # Verifica che le cog siano caricate
-        logger.info("🔄 Cog caricate:")
-        if self.cogs:
-            for cog_name in self.cogs:
-                logger.info(f"  - {cog_name}")
-        else:
-            logger.warning("⚠️ Nessuna cog caricata")
+        # Log delle cog caricate
+        logger.info("🔧 Cog caricate:")
+        for cog_name in self.cogs:
+            logger.info(f"  - {cog_name}")
 
 # Inizializza il bot
 bot = SecurityBot()
 
-# Comandi di debug e utilità
-@bot.tree.command(name="sync", description="Sincronizza i comandi (solo owner)")
-async def sync_commands(interaction: discord.Interaction):
-    """Forza la sincronizzazione dei comandi slash"""
+# COMANDI GLOBALI - Questi sono SEMPRE disponibili
+@bot.tree.command(name="ping", description="Controlla la latenza del bot")
+async def ping(interaction: discord.Interaction):
+    latency = round(bot.latency * 1000)
+    await interaction.response.send_message(f"🏓 Pong! {latency}ms", ephemeral=True)
+
+@bot.tree.command(name="help", description="Mostra tutti i comandi disponibili")
+async def help_command(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="🤖 Comandi Disponibili",
+        description="Ecco tutti i comandi del bot:",
+        color=0x00ff00
+    )
+    
+    # Comandi globali
+    embed.add_field(
+        name="🌐 Comandi Globali",
+        value="• `/ping` - Controlla la latenza\n• `/help` - Questo messaggio\n• `/sync` - Sincronizza comandi\n• `/info` - Info bot",
+        inline=False
+    )
+    
+    # Comandi dalle cog
+    if bot.cogs:
+        for cog_name, cog_instance in bot.cogs.items():
+            commands_list = []
+            for attr_name in dir(cog_instance):
+                attr = getattr(cog_instance, attr_name)
+                if hasattr(attr, '__self__') and hasattr(attr, 'binding'):
+                    if isinstance(attr.binding, app_commands.Command):
+                        commands_list.append(f"• `/{attr.binding.name}` - {attr.binding.description}")
+            
+            if commands_list:
+                embed.add_field(
+                    name=f"🔧 {cog_name}",
+                    value="\n".join(commands_list[:5]),  # Mostra max 5 comandi
+                    inline=False
+                )
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="sync", description="Sincronizza i comandi (owner only)")
+async def sync(interaction: discord.Interaction):
+    """Sincronizza i comandi slash"""
     try:
-        # Verifica che sia l'owner del bot
-        if interaction.user.id != bot.owner_id:
-            await interaction.response.send_message("❌ Solo l'owner del bot può usare questo comando!", ephemeral=True)
-            return
+        # Verifica owner (puoi impostare bot.owner_id)
+        # if interaction.user.id != bot.owner_id:
+        #     await interaction.response.send_message("❌ Solo l'owner può usare questo comando!", ephemeral=True)
+        #     return
         
         await interaction.response.defer(ephemeral=True)
         
-        # Sincronizza i comandi
+        # Sincronizza
         synced = await bot.tree.sync()
-        await interaction.followup.send(
-            f"✅ Sincronizzati {len(synced)} comandi!", 
-            ephemeral=True
-        )
-        logger.info(f"🔄 Sincronizzazione forzata: {len(synced)} comandi")
+        bot.synced = True
+        
+        await interaction.followup.send(f"✅ Sincronizzati {len(synced)} comandi!")
+        logger.info(f"🔄 Sincronizzazione manuale: {len(synced)} comandi")
         
     except Exception as e:
-        await interaction.followup.send(
-            f"❌ Errore sincronizzazione: {e}", 
-            ephemeral=True
-        )
-        logger.error(f"Errore sincronizzazione forzata: {e}")
-
-@bot.tree.command(name="ping", description="Controlla la latenza del bot")
-async def ping(interaction: discord.Interaction):
-    """Comando ping per testare il bot"""
-    latency = round(bot.latency * 1000)
-    await interaction.response.send_message(
-        f"🏓 Pong! Latency: {latency}ms", 
-        ephemeral=True
-    )
+        await interaction.followup.send(f"❌ Errore: {e}")
+        logger.error(f"Errore sync manuale: {e}")
 
 @bot.tree.command(name="info", description="Informazioni sul bot")
-async def bot_info(interaction: discord.Interaction):
-    """Mostra informazioni sul bot"""
+async def info(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🤖 NexaDev Security Bot",
         description="Bot per la sicurezza e gestione server Discord",
@@ -192,8 +186,9 @@ async def bot_info(interaction: discord.Interaction):
     )
     embed.add_field(name="📊 Server", value=len(bot.guilds), inline=True)
     embed.add_field(name="🏓 Latency", value=f"{round(bot.latency * 1000)}ms", inline=True)
-    embed.add_field(name="🔧 Cog Caricate", value=len(bot.cogs), inline=True)
-    embed.add_field(name="📝 Comandi Slash", value=len(bot.tree.get_commands()), inline=True)
+    embed.add_field(name="🔧 Cog", value=len(bot.cogs), inline=True)
+    embed.add_field(name="📝 Comandi", value=len(bot.tree.get_commands()), inline=True)
+    embed.add_field(name="🔄 Sincronizzato", value="✅" if bot.synced else "❌", inline=True)
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -201,43 +196,15 @@ async def main():
     """Funzione principale"""
     logger.info("🚀 Avvio del NexaDev Security Bot...")
     
-    # Verifica variabili d'ambiente
     token = os.getenv('DISCORD_TOKEN')
     if not token:
-        logger.error("❌ ERRORE: DISCORD_TOKEN non trovato!")
-        logger.error("💡 Assicurati di aver impostato la variabile d'ambiente DISCORD_TOKEN")
+        logger.error("❌ DISCORD_TOKEN non trovato!")
         return
     
-    # Verifica variabili opzionali
-    required_vars = ['TICKETS_CATEGORY_ID', 'STAFF_ROLE_ID', 'REPORT_ROLE_ID', 'CEO_ROLE_ID']
-    missing_vars = []
-    
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
-            logger.warning(f"⚠️ Variabile {var} non configurata")
-    
-    if missing_vars:
-        logger.warning(f"⚠️ Variabili mancanti: {', '.join(missing_vars)}")
-    else:
-        logger.info("✅ Tutte le variabili d'ambiente configurate")
-    
-    # Avvia il bot
     try:
         await bot.start(token)
-    except discord.LoginFailure:
-        logger.error("❌ ERRORE: Token Discord non valido!")
-    except KeyboardInterrupt:
-        logger.info("⏹️ Bot fermato manualmente")
     except Exception as e:
-        logger.error(f"💥 Errore durante l'avvio: {e}")
+        logger.error(f"💥 Errore: {e}")
 
 if __name__ == "__main__":
-    logger.info("🎯 Script principale avviato")
-    
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("⏹️ Bot fermato manualmente")
-    except Exception as e:
-        logger.error(f"💥 Errore critico: {e}")
+    asyncio.run(main())
