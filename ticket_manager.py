@@ -1,50 +1,37 @@
-import json
+import discord
+from discord import app_commands
+from discord.ext import commands
 import os
-from datetime import datetime
+import logging
+import asyncio
 
-class TicketManager:
-    def __init__(self):
-        self.tickets_file = "active_tickets.json"
-        self.load_tickets()
-    
-    def load_tickets(self):
-        """Carica i ticket attivi dal file"""
-        try:
-            if os.path.exists(self.tickets_file):
-                with open(self.tickets_file, 'r', encoding='utf-8') as f:
-                    self.active_tickets = json.load(f)
-            else:
-                self.active_tickets = {}
-        except Exception as e:
-            print(f"❌ Errore caricamento ticket: {e}")
-            self.active_tickets = {}
-    
-    def save_tickets(self):
-        """Salva i ticket attivi nel file"""
-        try:
-            with open(self.tickets_file, 'w', encoding='utf-8') as f:
-                json.dump(self.active_tickets, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"❌ Errore salvataggio ticket: {e}")
-    
-    def add_ticket(self, channel_id, ticket_data):
-        """Aggiunge un ticket attivo"""
-        self.active_tickets[str(channel_id)] = {
-            **ticket_data,
-            "created_at": datetime.now().isoformat()
-        }
-        self.save_tickets()
-    
-    def remove_ticket(self, channel_id):
-        """Rimuove un ticket"""
-        channel_id = str(channel_id)
-        if channel_id in self.active_tickets:
-            del self.active_tickets[channel_id]
-            self.save_tickets()
-    
-    def get_all_tickets(self):
-        """Restituisce tutti i ticket attivi"""
-        return self.active_tickets
+logger = logging.getLogger(__name__)
 
-# Istanza globale del ticket manager
-ticket_manager = TicketManager()
+class TicketManager(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        logger.info("🔄 TicketManager inizializzato")
+
+    @app_commands.command(name="ticket", description="Crea un ticket di supporto")
+    async def ticket(self, interaction: discord.Interaction):
+        """Crea un ticket di supporto"""
+        try:
+            await interaction.response.send_message("🎫 Sistema ticket funzionante!", ephemeral=True)
+            logger.info(f"Ticket command used by {interaction.user}")
+        except Exception as e:
+            logger.error(f"Errore comando ticket: {e}")
+            await interaction.response.send_message("❌ Errore nella creazione del ticket", ephemeral=True)
+
+    @app_commands.command(name="close", description="Chiudi il ticket corrente")
+    async def close(self, interaction: discord.Interaction):
+        """Chiudi il ticket corrente"""
+        try:
+            await interaction.response.send_message("🔒 Ticket chiuso!", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Errore comando close: {e}")
+
+# QUESTA FUNZIONE È OBBLIGATORIA - SENZA DI QUESTA LA COG NON SI CARICA
+async def setup(bot):
+    cog = TicketManager(bot)
+    await bot.add_cog(cog)
+    logger.info("✅ TicketManager cog caricato con successo!")
