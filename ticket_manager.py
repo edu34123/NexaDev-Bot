@@ -1,108 +1,104 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ui import Button, View
 import os
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
+
+class TicketView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        
+    @discord.ui.button(label="Bot Creator", style=discord.ButtonStyle.primary, emoji="🤖", custom_id="ticket_bot")
+    async def bot_creator(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("🎫 Creazione ticket Bot Creator...", ephemeral=True)
+        
+    @discord.ui.button(label="Server Creator", style=discord.ButtonStyle.primary, emoji="🌐", custom_id="ticket_server")
+    async def server_creator(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("🎫 Creazione ticket Server Creator...", ephemeral=True)
+        
+    @discord.ui.button(label="Server/Bot", style=discord.ButtonStyle.primary, emoji="⚡", custom_id="ticket_both")
+    async def both_creator(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("🎫 Creazione ticket Server/Bot Creator...", ephemeral=True)
+        
+    @discord.ui.button(label="Partnership", style=discord.ButtonStyle.success, emoji="🤝", custom_id="ticket_partnership")
+    async def partnership(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("🎫 Creazione ticket Partnership...", ephemeral=True)
+        
+    @discord.ui.button(label="Segnalazione", style=discord.ButtonStyle.danger, emoji="🚨", custom_id="ticket_report")
+    async def segnalazione(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("🚨 Creazione ticket Segnalazione...", ephemeral=True)
 
 class TicketManager(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         logger.info("✅ TicketManager inizializzato")
 
-    @app_commands.command(name="ticket", description="Crea un ticket di supporto")
-    @app_commands.describe(motivo="Motivo del ticket")
-    async def ticket(self, interaction: discord.Interaction, motivo: str):
-        """Crea un ticket di supporto"""
+    @app_commands.command(name="setup_tickets", description="Setup del sistema di ticket")
+    @app_commands.default_permissions(administrator=True)
+    async def setup_tickets(self, interaction: discord.Interaction):
+        """Setup del sistema di ticket"""
         try:
+            # Rispondi immediatamente
+            await interaction.response.send_message("🔄 Creando il pannello ticket...", ephemeral=True)
+            
+            # Crea l'embed
             embed = discord.Embed(
-                title="🎫 Ticket Creato",
-                description=f"**Motivo:** {motivo}",
+                title="🎫 NexaDev - Supporto",
+                description="Seleziona il tipo di assistenza di cui hai bisogno:",
                 color=0x00ff00
             )
-            embed.add_field(name="👤 Creato da", value=interaction.user.mention, inline=True)
-            embed.add_field(name="⏰ Data", value=discord.utils.format_dt(discord.utils.utcnow(), 'F'), inline=True)
             
-            await interaction.response.send_message(embed=embed, ephemeral=False)
-            logger.info(f"Ticket creato da {interaction.user} per: {motivo}")
-            
-        except Exception as e:
-            logger.error(f"Errore ticket: {e}")
-            await interaction.response.send_message("❌ Errore nella creazione del ticket", ephemeral=True)
-
-    @app_commands.command(name="close", description="Chiudi il ticket corrente")
-    async def close(self, interaction: discord.Interaction):
-        """Chiudi il ticket"""
-        try:
-            await interaction.response.send_message("🔒 Questo comando chiuderà il ticket...", ephemeral=True)
-        except Exception as e:
-            logger.error(f"Errore close: {e}")
-
-    @app_commands.command(name="ban", description="Banna un utente")
-    @app_commands.describe(utente="Utente da bannare", motivo="Motivo del ban")
-    async def ban(self, interaction: discord.Interaction, utente: discord.Member, motivo: str = "Nessun motivo"):
-        """Banna un utente"""
-        try:
-            # Verifica permessi
-            if not interaction.user.guild_permissions.ban_members:
-                await interaction.response.send_message("❌ Non hai i permessi per bannare!", ephemeral=True)
-                return
-                
-            await utente.ban(reason=motivo)
-            embed = discord.Embed(
-                title="🔨 Utente Bannato",
-                description=f"**Utente:** {utente.mention}\n**Motivo:** {motivo}",
-                color=0xff0000
+            embed.add_field(
+                name="🤖 Bot Creator",
+                value="Richiedi la creazione di un bot",
+                inline=True
             )
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            logger.error(f"Errore ban: {e}")
-            await interaction.response.send_message("❌ Errore nel ban", ephemeral=True)
-
-    @app_commands.command(name="kick", description="Espelli un utente")
-    @app_commands.describe(utente="Utente da espellere", motivo="Motivo dell'espulsione")
-    async def kick(self, interaction: discord.Interaction, utente: discord.Member, motivo: str = "Nessun motivo"):
-        """Espelli un utente"""
-        try:
-            if not interaction.user.guild_permissions.kick_members:
-                await interaction.response.send_message("❌ Non hai i permessi per espellere!", ephemeral=True)
-                return
-                
-            await utente.kick(reason=motivo)
-            embed = discord.Embed(
-                title="👢 Utente Espulso",
-                description=f"**Utente:** {utente.mention}\n**Motivo:** {motivo}",
-                color=0xffa500
+            embed.add_field(
+                name="🌐 Server Creator", 
+                value="Richiedi la creazione di un server",
+                inline=True
             )
-            await interaction.response.send_message(embed=embed)
-            
-        except Exception as e:
-            logger.error(f"Errore kick: {e}")
-            await interaction.response.send_message("❌ Errore nell'espulsione", ephemeral=True)
+            embed.add_field(
+                name="⚡ Server/Bot Creator",
+                value="Richiedi entrambi i servizi", 
+                inline=True
+            )
+            embed.add_field(
+                name="🤝 Partnership",
+                value="Richiedi una partnership",
+                inline=True
+            )
+            embed.add_field(
+                name="🚨 Segnalazione", 
+                value="Segnala un problema o utente",
+                inline=True
+            )
 
-    @app_commands.command(name="clear", description="Cancella messaggi")
-    @app_commands.describe(quantita="Numero di messaggi da cancellare (1-100)")
-    async def clear(self, interaction: discord.Interaction, quantita: int):
-        """Cancella messaggi"""
-        try:
-            if not interaction.user.guild_permissions.manage_messages:
-                await interaction.response.send_message("❌ Non hai i permessi per cancellare messaggi!", ephemeral=True)
-                return
-                
-            if quantita < 1 or quantita > 100:
-                await interaction.response.send_message("❌ Inserisci un numero tra 1 e 100!", ephemeral=True)
-                return
+            # Crea la view con i bottoni
+            view = TicketView()
             
-            await interaction.response.defer(ephemeral=True)
-            deleted = await interaction.channel.purge(limit=quantita)
-            await interaction.followup.send(f"✅ Cancellati {len(deleted)} messaggi!", ephemeral=True)
+            # Invia il messaggio nel canale
+            await interaction.channel.send(embed=embed, view=view)
             
+            # Modifica la risposta iniziale
+            await interaction.edit_original_response(content="✅ Pannello ticket creato con successo!")
+            
+            logger.info(f"Sistema ticket setup da {interaction.user}")
+
         except Exception as e:
-            logger.error(f"Errore clear: {e}")
-            await interaction.followup.send("❌ Errore nella cancellazione", ephemeral=True)
+            logger.error(f"Errore setup tickets: {e}")
+            await interaction.edit_original_response(content=f"❌ Errore: {e}")
 
 async def setup(bot):
-    await bot.add_cog(TicketManager(bot))
-    logger.info("✅ TicketManager cog caricato!")
+    # Carica la cog
+    cog = TicketManager(bot)
+    await bot.add_cog(cog)
+    
+    # Aggiungi le view persistenti
+    bot.add_view(TicketView())
+    
+    logger.info("✅ TicketManager cog caricato con views persistenti!")
