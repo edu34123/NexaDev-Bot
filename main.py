@@ -83,9 +83,9 @@ class SecurityBot(commands.Bot):
         """Carica tutte le cog con gestione errori migliorata"""
         # Lista delle cog da caricare
         cog_list = [
-            'tickets_cog',
-            'status_cog', 
-            'security_cog'
+            'tickets',
+            'status', 
+            'security'
         ]
         
         logger.info("🔄 Caricamento cog...")
