@@ -1,6 +1,7 @@
 import os
 import discord
 from discord.ext import commands
+from discord import app_commands
 import asyncio
 from flask import Flask
 from threading import Thread
@@ -42,7 +43,44 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+# Usa commands.Bot con tree per i comandi slash
+class MyBot(commands.Bot):
+    def __init__(self):
+        super().__init__(
+            command_prefix="!",
+            intents=intents,
+            application_id=os.getenv('APPLICATION_ID')  # Opzionale ma consigliato
+        )
+
+    async def setup_hook(self):
+        """Setup hook che viene chiamato all'avvio"""
+        logger.info("🔄 Caricamento cog...")
+        await self.load_cogs()
+        
+        # Sincronizza i comandi slash
+        logger.info("🔄 Sincronizzazione comandi slash...")
+        try:
+            synced = await self.tree.sync()
+            logger.info(f'✅ {len(synced)} comandi slash sincronizzati!')
+            
+            # Log dei comandi disponibili
+            logger.info("📝 Comandi slash disponibili:")
+            for cmd in synced:
+                logger.info(f"  - /{cmd.name}")
+        except Exception as e:
+            logger.error(f'❌ Errore sincronizzazione comandi: {e}')
+
+    async def load_cogs(self):
+        cogs = ['tickets_cog', 'status_cog', 'security_cog']
+        
+        for cog in cogs:
+            try:
+                await self.load_extension(cog)
+                logger.info(f"✅ {cog} caricata con successo")
+            except Exception as e:
+                logger.error(f"❌ Errore caricamento {cog}: {e}")
+
+bot = MyBot()
 
 @bot.event
 async def on_ready():
@@ -53,27 +91,6 @@ async def on_ready():
     logger.info("🔄 Verifica cog caricate:")
     for cog_name in bot.cogs:
         logger.info(f"  - {cog_name}")
-    
-    try:
-        synced = await bot.tree.sync()
-        logger.info(f'✅ {len(synced)} comandi slash sincronizzati!')
-        
-        logger.info("📝 Comandi slash disponibili:")
-        for cmd in synced:
-            logger.info(f"  - /{cmd.name}")
-            
-    except Exception as e:
-        logger.error(f'❌ Errore sincronizzazione comandi: {e}')
-
-async def load_cogs():
-    cogs = ['tickets_cog', 'status_cog', 'security_cog']
-    
-    for cog in cogs:
-        try:
-            await bot.load_extension(cog)
-            logger.info(f"✅ {cog} caricata con successo")
-        except Exception as e:
-            logger.error(f"❌ Errore caricamento {cog}: {e}")
 
 async def main():
     logger.info("🚀 Avvio del bot...")
@@ -95,11 +112,6 @@ async def main():
         logger.warning(f"⚠️ Variabili mancanti: {', '.join(missing_vars)}")
     
     logger.info("✅ Verifica variabili d'ambiente completata")
-    
-    # Carica le cog
-    await load_cogs()
-    
-    logger.info("✅ Tutte le cog caricate, avvio bot...")
     
     # Avvia il bot
     try:
