@@ -46,7 +46,7 @@ intents.members = True
 class SecurityBot(commands.Bot):
     def __init__(self):
         super().__init__(
-            command_prefix="/",
+            command_prefix="!",
             intents=intents,
             help_command=None
         )
@@ -69,28 +69,22 @@ class SecurityBot(commands.Bot):
         logger.info("📁 Scansione file nella directory corrente:")
         current_dir = os.listdir('.')
         py_files = [f for f in current_dir if f.endswith('.py')]
-        cog_files = [f for f in py_files if f.endswith('_cog.py')]
         
         logger.info(f"📝 Tutti i file .py: {len(py_files)}")
         for file in py_files:
             logger.info(f"  - {file}")
-        
-        logger.info(f"🔧 File cog trovati: {len(cog_files)}")
-        for file in cog_files:
-            logger.info(f"  - {file}")
 
     async def load_cogs(self):
         """Carica tutte le cog con gestione errori migliorata"""
-        # Lista delle cog da caricare
-        cog_list = [
-            'tickets',
-            'status', 
-            'security'
+        # Lista dei file Python che contengono cog (escludi main.py e keep_alive.py)
+        cog_files = [
+            'ticket_manager',  # Questo è il file che hai
+            # Aggiungi altri file qui se ne hai
         ]
         
         logger.info("🔄 Caricamento cog...")
         
-        for cog_name in cog_list:
+        for cog_name in cog_files:
             try:
                 # Verifica se il file esiste
                 if not os.path.exists(f"{cog_name}.py"):
@@ -227,14 +221,6 @@ async def main():
         logger.warning(f"⚠️ Variabili mancanti: {', '.join(missing_vars)}")
     else:
         logger.info("✅ Tutte le variabili d'ambiente configurate")
-    
-    # Imposta l'owner del bot (opzionale, per comandi admin)
-    try:
-        # Puoi impostare manualmente l'owner ID se vuoi
-        # bot.owner_id = 123456789012345678
-        pass
-    except Exception as e:
-        logger.warning(f"⚠️ Impossibile impostare owner_id: {e}")
     
     # Avvia il bot
     try:
