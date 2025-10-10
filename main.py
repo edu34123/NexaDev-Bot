@@ -2,12 +2,46 @@ import os
 import discord
 from discord.ext import commands
 import asyncio
+from flask import Flask
+from threading import Thread
+import logging
 
-# Carica le variabili d'ambiente
-from dotenv import load_dotenv
-load_dotenv()
+# Configura logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Configurazione
+# Server web per Render
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🤖 Bot Discord Online - Ticket System Ready!"
+
+@app.route('/health')
+def health():
+    return "✅ OK"
+
+@app.route('/ping')
+def ping():
+    return "pong"
+
+def run_web():
+    try:
+        port = int(os.getenv('PORT', 10000))
+        logger.info(f"🌐 Avvio server web sulla porta {port}")
+        app.run(host='0.0.0.0', port=port, debug=False)
+    except Exception as e:
+        logger.error(f"❌ Errore server web: {e}")
+
+# Avvia il server web in un thread separato
+try:
+    web_thread = Thread(target=run_web, daemon=True)
+    web_thread.start()
+    logger.info("✅ Server web avviato")
+except Exception as e:
+    logger.error(f"❌ Errore avvio server web: {e}")
+
+# Configurazione bot
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -16,71 +50,67 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'✅ {bot.user} è online!')
-    print(f'📊 Connesso a {len(bot.guilds)} server')
+    logger.info(f'✅ {bot.user} è online!')
+    logger.info(f'📊 Connesso a {len(bot.guilds)} server')
     
-    # Sincronizza i comandi slash
     try:
         synced = await bot.tree.sync()
-        print(f'✅ {len(synced)} comandi slash sincronizzati!')
+        logger.info(f'✅ {len(synced)} comandi slash sincronizzati!')
         
-        # Stampa i comandi disponibili
-        print("📝 Comandi disponibili:")
+        # Stampa tutti i comandi registrati
+        logger.info("📝 Comandi slash disponibili:")
         for cmd in synced:
-            print(f"  - /{cmd.name}")
+            logger.info(f"  - /{cmd.name}")
             
     except Exception as e:
-        print(f'❌ Errore sincronizzazione comandi: {e}')
+        logger.error(f'❌ Errore sincronizzazione comandi: {e}')
 
 async def load_cogs():
-    """Carica tutte le cog"""
     cogs = ['tickets_cog', 'status_cog', 'security_cog']
     
     for cog in cogs:
         try:
             await bot.load_extension(cog)
-            print(f"✅ Cog {cog} caricata")
+            logger.info(f"✅ {cog} caricata")
         except Exception as e:
-            print(f"❌ Errore caricamento {cog}: {e}")
-
-@bot.event
-async def on_command_error(ctx, error):
-    """Gestione errori"""
-    if isinstance(error, commands.CommandNotFound):
-        return
-    print(f"❌ Errore comando: {error}")
+            logger.error(f"❌ Errore caricamento {cog}: {e}")
 
 async def main():
-    """Funzione principale"""
-    print("🚀 Avvio del bot...")
+    logger.info("🚀 Avvio del bot...")
     
-    # Verifica che il token esista
+    # Verifica variabili d'ambiente
     token = os.getenv('DISCORD_TOKEN')
     if not token:
-        print("❌ ERRORE: DISCORD_TOKEN non trovato nelle variabili d'ambiente!")
-        print("💡 Assicurati di aver impostato il token in Render.com -> Environment Variables")
+        logger.error("❌ ERRORE: DISCORD_TOKEN non trovato!")
         return
     
-    print("✅ Token trovato, caricamento cog...")
+    # Verifica altre variabili importanti
+    required_vars = ['TICKETS_CATEGORY_ID', 'STAFF_ROLE_ID', 'REPORT_ROLE_ID', 'CEO_ROLE_ID']
+    for var in required_vars:
+        if not os.getenv(var):
+            logger.warning(f"⚠️ Variabile {var} non configurata")
+    
+    logger.info("✅ Variabili d'ambiente verificate")
     
     # Carica le cog
     await load_cogs()
     
-    print("✅ Cog caricate, avvio bot...")
+    logger.info("✅ Tutte le cog caricate, avvio bot...")
     
     # Avvia il bot
     try:
         await bot.start(token)
     except discord.LoginFailure:
-        print("❌ ERRORE: Token Discord non valido!")
+        logger.error("❌ ERRORE: Token Discord non valido!")
     except Exception as e:
-        print(f"💥 Errore durante l'avvio: {e}")
+        logger.error(f"💥 Errore durante l'avvio: {e}")
 
 if __name__ == "__main__":
-    # Esegui il bot
+    logger.info("🎯 Script principale avviato")
+    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("⏹️ Bot fermato manualmente")
+        logger.info("⏹️ Bot fermato manualmente")
     except Exception as e:
-        print(f"💥 Errore critico: {e}")
+        logger.error(f"💥 Errore critico: {e}")
