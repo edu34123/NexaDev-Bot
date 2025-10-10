@@ -6,8 +6,8 @@ from flask import Flask
 from threading import Thread
 import logging
 
-# Configura logging
-logging.basicConfig(level=logging.INFO)
+# Configura logging dettagliato
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Server web per Render
@@ -21,10 +21,6 @@ def home():
 def health():
     return "✅ OK"
 
-@app.route('/ping')
-def ping():
-    return "pong"
-
 def run_web():
     try:
         port = int(os.getenv('PORT', 10000))
@@ -33,7 +29,7 @@ def run_web():
     except Exception as e:
         logger.error(f"❌ Errore server web: {e}")
 
-# Avvia il server web in un thread separato
+# Avvia il server web
 try:
     web_thread = Thread(target=run_web, daemon=True)
     web_thread.start()
@@ -53,11 +49,15 @@ async def on_ready():
     logger.info(f'✅ {bot.user} è online!')
     logger.info(f'📊 Connesso a {len(bot.guilds)} server')
     
+    # Verifica che le cog siano caricate
+    logger.info("🔄 Verifica cog caricate:")
+    for cog_name in bot.cogs:
+        logger.info(f"  - {cog_name}")
+    
     try:
         synced = await bot.tree.sync()
         logger.info(f'✅ {len(synced)} comandi slash sincronizzati!')
         
-        # Stampa tutti i comandi registrati
         logger.info("📝 Comandi slash disponibili:")
         for cmd in synced:
             logger.info(f"  - /{cmd.name}")
@@ -71,7 +71,7 @@ async def load_cogs():
     for cog in cogs:
         try:
             await bot.load_extension(cog)
-            logger.info(f"✅ {cog} caricata")
+            logger.info(f"✅ {cog} caricata con successo")
         except Exception as e:
             logger.error(f"❌ Errore caricamento {cog}: {e}")
 
@@ -84,13 +84,17 @@ async def main():
         logger.error("❌ ERRORE: DISCORD_TOKEN non trovato!")
         return
     
-    # Verifica altre variabili importanti
     required_vars = ['TICKETS_CATEGORY_ID', 'STAFF_ROLE_ID', 'REPORT_ROLE_ID', 'CEO_ROLE_ID']
+    missing_vars = []
     for var in required_vars:
         if not os.getenv(var):
+            missing_vars.append(var)
             logger.warning(f"⚠️ Variabile {var} non configurata")
     
-    logger.info("✅ Variabili d'ambiente verificate")
+    if missing_vars:
+        logger.warning(f"⚠️ Variabili mancanti: {', '.join(missing_vars)}")
+    
+    logger.info("✅ Verifica variabili d'ambiente completata")
     
     # Carica le cog
     await load_cogs()
