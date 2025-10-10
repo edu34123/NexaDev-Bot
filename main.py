@@ -115,7 +115,94 @@ class SecurityBot(commands.Bot):
 # Inizializza il bot
 bot = SecurityBot()
 
-# COMANDI GLOBALI - Questi sono SEMPRE disponibili
+# COMANDO DI TEST PER IL SETUP TICKET
+@bot.tree.command(name="test_ticket", description="Test del sistema ticket")
+async def test_ticket(interaction: discord.Interaction):
+    """Comando di test per il sistema ticket"""
+    try:
+        embed = discord.Embed(
+            title="🎫 TEST - NexaDev Supporto",
+            description="**Questo è un messaggio di test!**",
+            color=0x00ff00
+        )
+        embed.add_field(
+            name="🤖 Bot Creator",
+            value="Richiedi la creazione di un bot",
+            inline=True
+        )
+        embed.add_field(
+            name="🚨 Segnalazione", 
+            value="Segnala un problema",
+            inline=True
+        )
+        
+        await interaction.response.send_message("✅ Messaggio di test inviato!", ephemeral=True)
+        await interaction.channel.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"Errore test ticket: {e}")
+        await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+
+@bot.tree.command(name="setup_here", description="Crea il pannello ticket in questo canale")
+@commands.has_permissions(administrator=True)
+async def setup_here(interaction: discord.Interaction):
+    """Crea il pannello ticket direttamente"""
+    try:
+        embed = discord.Embed(
+            title="🎫 NexaDev - Supporto",
+            description="Seleziona il tipo di assistenza di cui hai bisogno:",
+            color=0x00ff00
+        )
+        
+        embed.add_field(
+            name="🤖 Bot Creator",
+            value="Richiedi la creazione di un bot",
+            inline=True
+        )
+        embed.add_field(
+            name="🌐 Server Creator", 
+            value="Richiedi la creazione di un server",
+            inline=True
+        )
+        embed.add_field(
+            name="⚡ Server/Bot Creator",
+            value="Richiedi entrambi i servizi", 
+            inline=True
+        )
+        embed.add_field(
+            name="🤝 Partnership",
+            value="Richiedi una partnership",
+            inline=True
+        )
+        embed.add_field(
+            name="🚨 Segnalazione", 
+            value="Segnala un problema o utente",
+            inline=True
+        )
+
+        # Crea i bottoni
+        from discord.ui import Button, View
+        
+        class TestView(View):
+            def __init__(self):
+                super().__init__(timeout=None)
+            
+            @discord.ui.button(label="Bot Creator", style=discord.ButtonStyle.primary, emoji="🤖")
+            async def bot_test(self, interaction: discord.Interaction, button: Button):
+                await interaction.response.send_message("✅ Test Bot Creator funziona!", ephemeral=True)
+            
+            @discord.ui.button(label="Segnalazione", style=discord.ButtonStyle.danger, emoji="🚨")
+            async def report_test(self, interaction: discord.Interaction, button: Button):
+                await interaction.response.send_message("✅ Test Segnalazione funziona!", ephemeral=True)
+
+        view = TestView()
+        await interaction.response.send_message(embed=embed, view=view)
+        logger.info(f"Pannello test creato da {interaction.user}")
+
+    except Exception as e:
+        logger.error(f"Errore setup_here: {e}")
+        await interaction.response.send_message(f"❌ Errore: {e}", ephemeral=True)
+
 @bot.tree.command(name="ping", description="Controlla la latenza del bot")
 async def ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
@@ -129,68 +216,29 @@ async def help_command(interaction: discord.Interaction):
         color=0x00ff00
     )
     
-    # Comandi globali
     embed.add_field(
-        name="🌐 Comandi Globali",
-        value="• `/ping` - Controlla la latenza\n• `/help` - Questo messaggio\n• `/sync` - Sincronizza comandi\n• `/info` - Info bot",
+        name="🎫 Ticket System",
+        value="• `/setup_tickets` - Setup sistema ticket\n• `/test_ticket` - Test sistema\n• `/setup_here` - Crea pannello qui",
         inline=False
     )
     
-    # Comandi dalle cog
-    if bot.cogs:
-        for cog_name, cog_instance in bot.cogs.items():
-            commands_list = []
-            for attr_name in dir(cog_instance):
-                attr = getattr(cog_instance, attr_name)
-                if hasattr(attr, '__self__') and hasattr(attr, 'binding'):
-                    if isinstance(attr.binding, app_commands.Command):
-                        commands_list.append(f"• `/{attr.binding.name}` - {attr.binding.description}")
-            
-            if commands_list:
-                embed.add_field(
-                    name=f"🔧 {cog_name}",
-                    value="\n".join(commands_list[:5]),  # Mostra max 5 comandi
-                    inline=False
-                )
+    embed.add_field(
+        name="🔧 Utility",
+        value="• `/ping` - Controlla latenza\n• `/help` - Questo messaggio\n• `/sync` - Sincronizza comandi",
+        inline=False
+    )
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="sync", description="Sincronizza i comandi (owner only)")
+@bot.tree.command(name="sync", description="Sincronizza i comandi")
 async def sync(interaction: discord.Interaction):
-    """Sincronizza i comandi slash"""
     try:
-        # Verifica owner (puoi impostare bot.owner_id)
-        # if interaction.user.id != bot.owner_id:
-        #     await interaction.response.send_message("❌ Solo l'owner può usare questo comando!", ephemeral=True)
-        #     return
-        
         await interaction.response.defer(ephemeral=True)
-        
-        # Sincronizza
         synced = await bot.tree.sync()
         bot.synced = True
-        
         await interaction.followup.send(f"✅ Sincronizzati {len(synced)} comandi!")
-        logger.info(f"🔄 Sincronizzazione manuale: {len(synced)} comandi")
-        
     except Exception as e:
         await interaction.followup.send(f"❌ Errore: {e}")
-        logger.error(f"Errore sync manuale: {e}")
-
-@bot.tree.command(name="info", description="Informazioni sul bot")
-async def info(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🤖 NexaDev Security Bot",
-        description="Bot per la sicurezza e gestione server Discord",
-        color=0x00ff00
-    )
-    embed.add_field(name="📊 Server", value=len(bot.guilds), inline=True)
-    embed.add_field(name="🏓 Latency", value=f"{round(bot.latency * 1000)}ms", inline=True)
-    embed.add_field(name="🔧 Cog", value=len(bot.cogs), inline=True)
-    embed.add_field(name="📝 Comandi", value=len(bot.tree.get_commands()), inline=True)
-    embed.add_field(name="🔄 Sincronizzato", value="✅" if bot.synced else "❌", inline=True)
-    
-    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 async def main():
     """Funzione principale"""
