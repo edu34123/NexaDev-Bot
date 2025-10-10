@@ -1,22 +1,17 @@
 services:
   - type: web
-    name: nexadev-bot
+    name: discord-ticket-bot
     env: python
-    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
     envVars:
-      - key: PORT
-        value: 10000
       - key: DISCORD_TOKEN
         sync: false
-      - key: GUILD_ID
-        sync: false
-      - key: TICKET_CHANNEL_ID
-        sync: false
-      - key: VERIFY_CHANNEL_ID
-        sync: false
-      - key: STATUS_CHANNEL_ID
+      - key: TICKETS_CATEGORY_ID
         sync: false
       - key: STAFF_ROLE_ID
+        sync: false
+      - key: REPORT_ROLE_ID
+        sync: false
+      - key: CEO_ROLE_ID
         sync: false
