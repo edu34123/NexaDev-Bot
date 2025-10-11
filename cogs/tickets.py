@@ -41,7 +41,8 @@ class TicketViewIT(View):
             await interaction.response.defer(ephemeral=True)
             
             guild = interaction.guild
-            category = guild.get_channel(1426245729193820191)  # tickets_category
+            category_id = 1426245729193820191  # tickets_category
+            category = guild.get_channel(category_id)
             
             if not category:
                 await interaction.followup.send("❌ Categoria ticket non trovata", ephemeral=True)
@@ -70,7 +71,8 @@ class TicketViewIT(View):
             # Crea canale
             ticket_channel = await category.create_text_channel(
                 name=channel_name,
-                overwrites=overwrites
+                overwrites=overwrites,
+                reason=f"Ticket creato da {interaction.user}"
             )
 
             # Embed del ticket
@@ -138,7 +140,8 @@ class TicketViewENG(View):
             await interaction.response.defer(ephemeral=True)
             
             guild = interaction.guild
-            category = guild.get_channel(1426245729193820191)  # tickets_category
+            category_id = 1426245729193820191  # tickets_category
+            category = guild.get_channel(category_id)
             
             if not category:
                 await interaction.followup.send("❌ Ticket category not found", ephemeral=True)
@@ -167,7 +170,8 @@ class TicketViewENG(View):
             # Create channel
             ticket_channel = await category.create_text_channel(
                 name=channel_name,
-                overwrites=overwrites
+                overwrites=overwrites,
+                reason=f"Ticket created by {interaction.user}"
             )
 
             # Ticket embed
@@ -255,49 +259,62 @@ class Tickets(commands.Cog):
     async def setup_tickets(self, interaction: discord.Interaction):
         """Setup dei pannelli ticket"""
         try:
-            await interaction.response.send_message("🔄 Setup ticket in corso...", ephemeral=True)
+            await interaction.response.defer(ephemeral=True)
             
             # Canale italiano
-            channel_it = self.bot.get_channel(1423755447445225554)
+            channel_it_id = 1423755447445225554  # tickets_it
+            channel_eng_id = 1423395942094344223  # tickets_eng
+            
+            channel_it = self.bot.get_channel(channel_it_id)
             if channel_it:
                 embed_it = discord.Embed(
                     title="🎫 NexaDev - Supporto Ticket",
                     description="Seleziona il tipo di assistenza di cui hai bisogno:",
                     color=0x00ff00
                 )
-                embed_it.add_field(name="⚡ Creazione Server e Bot", value="Richiedi la creazione di server e bot", inline=False)
-                embed_it.add_field(name="🌐 Creazione Server", value="Richiedi solo la creazione server", inline=False)
-                embed_it.add_field(name="🤖 Creazione Bot", value="Richiedi solo la creazione bot", inline=False)
-                embed_it.add_field(name="🤝 Partnership", value="Richiedi una partnership", inline=False)
-                embed_it.add_field(name="🚨 Segnalazione", value="Segnala un problema", inline=False)
-                embed_it.add_field(name="👑 Richiesta CEO", value="Richiedi l'intervento del CEO", inline=False)
+                embed_it.add_field(name="⚡ Creazione Server e Bot", value="Richiedi la creazione di server e bot", inline=True)
+                embed_it.add_field(name="🌐 Creazione Server", value="Richiedi solo la creazione server", inline=True)
+                embed_it.add_field(name="🤖 Creazione Bot", value="Richiedi solo la creazione bot", inline=True)
+                embed_it.add_field(name="🤝 Partnership", value="Richiedi una partnership", inline=True)
+                embed_it.add_field(name="🚨 Segnalazione", value="Segnala un problema", inline=True)
+                embed_it.add_field(name="👑 Richiesta CEO", value="Richiedi l'intervento del CEO", inline=True)
                 
-                await channel_it.purge(limit=10)
+                try:
+                    await channel_it.purge(limit=10)
+                except:
+                    pass
+                
                 await channel_it.send(embed=embed_it, view=TicketViewIT())
+                logger.info("✅ Pannello ticket italiano inviato")
             
             # Canale inglese
-            channel_eng = self.bot.get_channel(1423395942094344223)
+            channel_eng = self.bot.get_channel(channel_eng_id)
             if channel_eng:
                 embed_eng = discord.Embed(
                     title="🎫 NexaDev - Ticket Support",
                     description="Select the type of assistance you need:",
                     color=0x00ff00
                 )
-                embed_eng.add_field(name="⚡ Server & Bot Creation", value="Request server and bot creation", inline=False)
-                embed_eng.add_field(name="🌐 Server Creation", value="Request only server creation", inline=False)
-                embed_eng.add_field(name="🤖 Bot Creation", value="Request only bot creation", inline=False)
-                embed_eng.add_field(name="🤝 Partnership", value="Request a partnership", inline=False)
-                embed_eng.add_field(name="🚨 Report", value="Report an issue", inline=False)
-                embed_eng.add_field(name="👑 CEO Request", value="Request CEO intervention", inline=False)
+                embed_eng.add_field(name="⚡ Server & Bot Creation", value="Request server and bot creation", inline=True)
+                embed_eng.add_field(name="🌐 Server Creation", value="Request only server creation", inline=True)
+                embed_eng.add_field(name="🤖 Bot Creation", value="Request only bot creation", inline=True)
+                embed_eng.add_field(name="🤝 Partnership", value="Request a partnership", inline=True)
+                embed_eng.add_field(name="🚨 Report", value="Report an issue", inline=True)
+                embed_eng.add_field(name="👑 CEO Request", value="Request CEO intervention", inline=True)
                 
-                await channel_eng.purge(limit=10)
+                try:
+                    await channel_eng.purge(limit=10)
+                except:
+                    pass
+                
                 await channel_eng.send(embed=embed_eng, view=TicketViewENG())
+                logger.info("✅ Pannello ticket inglese inviato")
             
-            await interaction.edit_original_response(content="✅ Setup ticket completato!")
+            await interaction.followup.send("✅ Setup ticket completato!")
             
         except Exception as e:
             logger.error(f"Errore setup tickets: {e}")
-            await interaction.edit_original_response(content=f"❌ Errore: {e}")
+            await interaction.followup.send(f"❌ Errore: {e}")
 
 async def setup(bot):
     await bot.add_cog(Tickets(bot))
