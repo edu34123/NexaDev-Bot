@@ -68,6 +68,11 @@ class TicketViewIT(View):
                 interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
             }
 
+            # Aggiungi permessi staff
+            staff_role = discord.utils.get(guild.roles, name="Staff")
+            if staff_role:
+                overwrites[staff_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True, manage_messages=True)
+
             # Crea canale
             ticket_channel = await category.create_text_channel(
                 name=channel_name,
@@ -95,7 +100,7 @@ class TicketViewIT(View):
             ticket_view = TicketActionsView()
             
             await ticket_channel.send(
-                content=f"{interaction.user.mention}",
+                content=f"{interaction.user.mention} {staff_role.mention if staff_role else ''}",
                 embed=embed,
                 view=ticket_view
             )
@@ -167,6 +172,11 @@ class TicketViewENG(View):
                 interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
             }
 
+            # Add staff permissions
+            staff_role = discord.utils.get(guild.roles, name="Staff")
+            if staff_role:
+                overwrites[staff_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True, manage_messages=True)
+
             # Create channel
             ticket_channel = await category.create_text_channel(
                 name=channel_name,
@@ -194,7 +204,7 @@ class TicketViewENG(View):
             ticket_view = TicketActionsView()
             
             await ticket_channel.send(
-                content=f"{interaction.user.mention}",
+                content=f"{interaction.user.mention} {staff_role.mention if staff_role else ''}",
                 embed=embed,
                 view=ticket_view
             )
@@ -212,8 +222,11 @@ class TicketActionsView(View):
     
     @discord.ui.button(label="Claim", style=discord.ButtonStyle.success, emoji="👤", custom_id="claim_ticket")
     async def claim_ticket(self, interaction: discord.Interaction, button: Button):
-        # Verifica se è staff
-        if not any(role.permissions.manage_messages for role in interaction.user.roles):
+        # Verifica se è staff - controllo più flessibile
+        staff_roles = ["Staff", "Admin", "Moderator", "ceo-dev"]
+        is_staff = any(role.name in staff_roles for role in interaction.user.roles) or interaction.user.guild_permissions.manage_messages
+        
+        if not is_staff:
             await interaction.response.send_message("❌ Solo lo staff può claimare i ticket!", ephemeral=True)
             return
         
@@ -228,8 +241,11 @@ class TicketActionsView(View):
     
     @discord.ui.button(label="Chiudi", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="close_ticket")
     async def close_ticket(self, interaction: discord.Interaction, button: Button):
-        # Verifica permessi
-        if not any(role.permissions.manage_messages for role in interaction.user.roles):
+        # Verifica permessi - controllo più flessibile
+        staff_roles = ["Staff", "Admin", "Moderator", "ceo-dev"]
+        is_staff = any(role.name in staff_roles for role in interaction.user.roles) or interaction.user.guild_permissions.manage_messages
+        
+        if not is_staff:
             await interaction.response.send_message("❌ Solo lo staff può chiudere i ticket!", ephemeral=True)
             return
         
