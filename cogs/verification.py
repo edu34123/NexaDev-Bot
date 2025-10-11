@@ -1,88 +1,53 @@
 import discord
+from discord import app_commands
 from discord.ext import commands
-from discord import ui
-import os
+from discord.ui import Button, View
+import logging
 
-class LanguageSelectView(ui.View):
+logger = logging.getLogger(__name__)
+
+class VerificationView(View):
     def __init__(self):
         super().__init__(timeout=None)
     
-    @discord.ui.button(label='Italiano', style=discord.ButtonStyle.primary, custom_id='italian')
-    async def italian(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.setup_language_section(interaction, "italiano")
+    @discord.ui.button(label="Italiano", style=discord.ButtonStyle.primary, emoji="🇮🇹", custom_id="verify_it")
+    async def verify_it(self, interaction: discord.Interaction, button: Button):
+        await self.assign_role(interaction, 1423717246261264509, "Italiano")  # ita_id
     
-    @discord.ui.button(label='English', style=discord.ButtonStyle.secondary, custom_id='english')
-    async def english(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.setup_language_section(interaction, "english")
-    
-    async def setup_language_section(self, interaction: discord.Interaction, language: str):
-        # Assegna il ruolo in base alla lingua
-        guild = interaction.guild
-        
-        if language == "italiano":
-            role_name = "Italiano"
-            embed_title = "Benvenuto in NexaDev!"
-            embed_description = "Seleziona il tipo di assistenza di cui hai bisogno:"
-        else:
-            role_name = "English"
-            embed_title = "Welcome to NexaDev!"
-            embed_description = "Select the type of assistance you need:"
-        
-        # Cerca o crea il ruolo
-        role = discord.utils.get(guild.roles, name=role_name)
-        if not role:
-            role = await guild.create_role(name=role_name)
-        
-        # Assegna il ruolo all'utente
-        await interaction.user.add_roles(role)
-        
-        # Invia il messaggio dei ticket nella lingua corretta
-        if language == "italiano":
-            embed = discord.Embed(
-                title=embed_title,
-                description=embed_description,
-                color=discord.Color.blue()
-            )
-            embed.add_field(name="Bot Creator", value="Richiedi la creazione di un bot", inline=True)
-            embed.add_field(name="Server Creator", value="Richiedi la creazione di un server", inline=True)
-            embed.add_field(name="Server/Bot Creator", value="Richiedi entrambi i servizi", inline=True)
-            embed.add_field(name="Partnership", value="Richiedi una partnership", inline=True)
-        else:
-            embed = discord.Embed(
-                title=embed_title,
-                description=embed_description,
-                color=discord.Color.blue()
-            )
-            embed.add_field(name="Bot Creator", value="Request a bot creation", inline=True)
-            embed.add_field(name="Server Creator", value="Request a server creation", inline=True)
-            embed.add_field(name="Server/Bot Creator", value="Request both services", inline=True)
-            embed.add_field(name="Partnership", value="Request a partnership", inline=True)
-        
-        from .ticket import TicketView
-        view = TicketView()
-        
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+    @discord.ui.button(label="English", style=discord.ButtonStyle.primary, emoji="🇬🇧", custom_id="verify_eng")
+    async def verify_eng(self, interaction: discord.Interaction, button: Button):
+        await self.assign_role(interaction, 1423743289475076318, "English")  # eng_id
 
-class VerifyCog(commands.Cog):
+    async def assign_role(self, interaction: discord.Interaction, role_id: int, language: str):
+        try:
+            role = interaction.guild.get_role(role_id)
+            member_role = interaction.guild.get_role(1423395890546081995)  # member_id
+            
+            if role and member_role:
+                await interaction.user.add_roles(role, member_role)
+                
+                embed = discord.Embed(
+                    title="✅ Verifica Completata",
+                    description=f"Ti è stato assegnato il ruolo {language} e il ruolo Membro!",
+                    color=0x00ff00
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                logger.info(f"Utente {interaction.user} verificato come {language}")
+            else:
+                await interaction.response.send_message("❌ Ruolo non trovato", ephemeral=True)
+                
+        except Exception as e:
+            logger.error(f"Errore verifica: {e}")
+            await interaction.response.send_message("❌ Errore nella verifica", ephemeral=True)
+
+class Verification(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-    
+
     @commands.Cog.listener()
     async def on_ready(self):
-        self.bot.add_view(LanguageSelectView())
-    
-    @commands.command()
-    @commands.has_permissions(administrator=True)
-    async def setup_verify(self, ctx):
-        """Setup del sistema di verifica"""
-        embed = discord.Embed(
-            title="NexaDev - Verifica",
-            description="**Seleziona la tua lingua / Select your language:**",
-            color=discord.Color.gold()
-        )
-        
-        view = LanguageSelectView()
-        await ctx.send(embed=embed, view=view)
+        self.bot.add_view(VerificationView())
+        logger.info("✅ Verification view caricata")
 
 async def setup(bot):
-    await bot.add_cog(VerifyCog(bot))
+    await bot.add_cog(Verification(bot))
