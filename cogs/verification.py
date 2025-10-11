@@ -26,12 +26,12 @@ class VerificationView(View):
             if role and member_role:
                 await interaction.user.add_roles(role, member_role)
                 
-                embed = discord.Embed(
-                    title="✅ Verifica Completata",
-                    description=f"Ti è stato assegnato il ruolo {language} e il ruolo Membro!",
-                    color=0x00ff00
-                )
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                if language == "Italiano":
+                    message = f"✅ Verifica completata! Ti è stato assegnato il ruolo {language} e il ruolo Membro!"
+                else:
+                    message = f"✅ Verification completed! You have been assigned the {language} role and the Member role!"
+                
+                await interaction.response.send_message(message, ephemeral=True)
                 logger.info(f"Utente {interaction.user} verificato come {language}")
             else:
                 await interaction.response.send_message("❌ Ruolo non trovato", ephemeral=True)
