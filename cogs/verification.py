@@ -12,26 +12,31 @@ class VerificationView(View):
     
     @discord.ui.button(label="Italiano", style=discord.ButtonStyle.primary, emoji="🇮🇹", custom_id="verify_it")
     async def verify_it(self, interaction: discord.Interaction, button: Button):
-        await self.assign_role(interaction, 1423717246261264509, "Italiano")  # ita_id
+        await self.assign_role(interaction, "it")
     
     @discord.ui.button(label="English", style=discord.ButtonStyle.primary, emoji="🇬🇧", custom_id="verify_eng")
     async def verify_eng(self, interaction: discord.Interaction, button: Button):
-        await self.assign_role(interaction, 1423743289475076318, "English")  # eng_id
+        await self.assign_role(interaction, "eng")
 
-    async def assign_role(self, interaction: discord.Interaction, role_id: int, language: str):
+    async def assign_role(self, interaction: discord.Interaction, language: str):
         try:
-            role = interaction.guild.get_role(role_id)
-            member_role = interaction.guild.get_role(1423395890546081995)  # member_id
+            # ID dei ruoli (MODIFICA QUESTI CON I TUOI ID)
+            MEMBER_ROLE_ID = 1423395890546081995
+            ITA_ROLE_ID = 1423717246261264509
+            ENG_ROLE_ID = 1423743289475076318
+            
+            member_role = interaction.guild.get_role(MEMBER_ROLE_ID)
+            
+            if language == "it":
+                role = interaction.guild.get_role(ITA_ROLE_ID)
+                success_message = "✅ Verifica completata! Ti è stato assegnato il ruolo Italiano e il ruolo Membro!"
+            else:
+                role = interaction.guild.get_role(ENG_ROLE_ID)
+                success_message = "✅ Verification completed! You have been assigned the English role and the Member role!"
             
             if role and member_role:
                 await interaction.user.add_roles(role, member_role)
-                
-                if language == "Italiano":
-                    message = f"✅ Verifica completata! Ti è stato assegnato il ruolo {language} e il ruolo Membro!"
-                else:
-                    message = f"✅ Verification completed! You have been assigned the {language} role and the Member role!"
-                
-                await interaction.response.send_message(message, ephemeral=True)
+                await interaction.response.send_message(success_message, ephemeral=True)
                 logger.info(f"Utente {interaction.user} verificato come {language}")
             else:
                 await interaction.response.send_message("❌ Ruolo non trovato", ephemeral=True)
@@ -46,6 +51,7 @@ class Verification(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
+        # Aggiungi la view persistente
         self.bot.add_view(VerificationView())
         logger.info("✅ Verification view caricata")
 
