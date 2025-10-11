@@ -54,6 +54,9 @@ class NexaBot(commands.Bot):
         # Sincronizza i comandi
         await self.sync_commands()
         
+        # Invia messaggi automatici
+        asyncio.create_task(self.send_auto_messages())
+        
         logger.info("✅ Setup hook completato")
 
     async def load_cogs(self):
@@ -78,6 +81,81 @@ class NexaBot(commands.Bot):
                 logger.info("ℹ️ Comandi già sincronizzati")
         except Exception as e:
             logger.error(f'❌ Errore sincronizzazione: {e}')
+
+    async def send_auto_messages(self):
+        """Invia automaticamente i messaggi di verify"""
+        try:
+            # Aspetta che il bot sia completamente pronto
+            await self.wait_until_ready()
+            await asyncio.sleep(5)  # Aspetta 5 secondi aggiuntivi
+            
+            logger.info("🔄 Invio messaggi verify automatici...")
+            
+            # Importa qui per evitare circular imports
+            from cogs.verification import VerificationView
+            
+            # ID dei canali di verify (MODIFICA QUESTI CON I TUOI ID CORRETTI)
+            VERIFY_CHANNEL_IT = 1423717246261264509  # Canale verify italiano
+            VERIFY_CHANNEL_ENG = 1423743289475076318  # Canale verify inglese
+            
+            # Canale italiano
+            channel_it = self.get_channel(VERIFY_CHANNEL_IT)
+            if channel_it:
+                try:
+                    # Pulisci i vecchi messaggi (opzionale)
+                    await channel_it.purge(limit=10)
+                    logger.info("✅ Canale verify italiano pulito")
+                except Exception as e:
+                    logger.warning(f"⚠️ Non ho potuto pulire il canale italiano: {e}")
+                
+                # Crea l'embed per italiano
+                embed_it = discord.Embed(
+                    title="🔐 Verifica | Verification",
+                    description=(
+                        "**Italiano:**\n"
+                        "Clicca sul pulsante qui sotto per verificarti e accedere al server!\n\n"
+                        "**English:**\n"
+                        "Click the button below to verify yourself and access the server!"
+                    ),
+                    color=0x00ff00
+                )
+                
+                # Invia il messaggio
+                view = VerificationView()
+                await channel_it.send(embed=embed_it, view=view)
+                logger.info("✅ Messaggio verify italiano inviato")
+            
+            # Canale inglese
+            channel_eng = self.get_channel(VERIFY_CHANNEL_ENG)
+            if channel_eng:
+                try:
+                    # Pulisci i vecchi messaggi (opzionale)
+                    await channel_eng.purge(limit=10)
+                    logger.info("✅ Canale verify inglese pulito")
+                except Exception as e:
+                    logger.warning(f"⚠️ Non ho potuto pulire il canale inglese: {e}")
+                
+                # Crea l'embed per inglese
+                embed_eng = discord.Embed(
+                    title="🔐 Verification | Verifica",
+                    description=(
+                        "**English:**\n"
+                        "Click the button below to verify yourself and access the server!\n\n"
+                        "**Italiano:**\n"
+                        "Clicca sul pulsante qui sotto per verificarti e accedere al server!"
+                    ),
+                    color=0x00ff00
+                )
+                
+                # Invia il messaggio
+                view = VerificationView()
+                await channel_eng.send(embed=embed_eng, view=view)
+                logger.info("✅ Messaggio verify inglese inviato")
+            
+            logger.info("✅ Tutti i messaggi verify inviati con successo!")
+            
+        except Exception as e:
+            logger.error(f"❌ Errore nell'invio automatico dei messaggi: {e}")
 
     async def on_ready(self):
         """Evento quando il bot è pronto"""
@@ -111,7 +189,7 @@ async def help_command(interaction: discord.Interaction):
     
     embed.add_field(
         name="🎫 Ticket System",
-        value="• `/setup_tickets` - Setup sistema ticket\n• Clicca sui bottoni nei canali ticket",
+        value="• `/setup_tickets` - Setup sistema ticket\n• `/send_verify` - Invia messaggi verify",
         inline=False
     )
     
@@ -148,71 +226,15 @@ async def sync(interaction: discord.Interaction):
     except Exception as e:
         await interaction.followup.send(f"❌ Errore: {e}")
 
-@bot.tree.command(name="send_messages", description="Invia messaggi automatici (Admin)")
+@bot.tree.command(name="send_verify", description="Invia messaggi di verify (Admin)")
 @app_commands.default_permissions(administrator=True)
-async def send_messages(interaction: discord.Interaction):
-    """Invia manualmente i messaggi automatici"""
+async def send_verify(interaction: discord.Interaction):
+    """Invia manualmente i messaggi di verify"""
     try:
         await interaction.response.defer(ephemeral=True)
-        
-        # Importa qui per evitare circular imports
-        from cogs.verification import VerificationView
-        
-        # Canali di verifica
-        verify_channel_it = bot.get_channel(1423717246261264509)  # Canale verifica italiano
-        verify_channel_eng = bot.get_channel(1423743289475076318)  # Canale verifica inglese
-        
-        # Canali ticket
-        ticket_channel_it = bot.get_channel(1423755447445225554)  # tickets_it
-        ticket_channel_eng = bot.get_channel(1423395942094344223)  # tickets_eng
-        
-        messages_sent = 0
-        
-        # Messaggi di verifica
-        if verify_channel_it:
-            embed_it = discord.Embed(
-                title="🔐 Verifica | Verification",
-                description=(
-                    "**Italiano:**\n"
-                    "Clicca sul pulsante qui sotto per verificarti e accedere al server!\n\n"
-                    "**English:**\n"
-                    "Click the button below to verify yourself and access the server!"
-                ),
-                color=0x00ff00
-            )
-            view = VerificationView()
-            try:
-                await verify_channel_it.purge(limit=10)
-            except:
-                pass
-            await verify_channel_it.send(embed=embed_it, view=view)
-            messages_sent += 1
-            logger.info("✅ Messaggio verifica italiano inviato")
-        
-        if verify_channel_eng:
-            embed_eng = discord.Embed(
-                title="🔐 Verification | Verifica",
-                description=(
-                    "**English:**\n"
-                    "Click the button below to verify yourself and access the server!\n\n"
-                    "**Italiano:**\n"
-                    "Clicca sul pulsante qui sotto per verificarti e accedere al server!"
-                ),
-                color=0x00ff00
-            )
-            view = VerificationView()
-            try:
-                await verify_channel_eng.purge(limit=10)
-            except:
-                pass
-            await verify_channel_eng.send(embed=embed_eng, view=view)
-            messages_sent += 1
-            logger.info("✅ Messaggio verifica inglese inviato")
-        
-        await interaction.followup.send(f"✅ {messages_sent} messaggi inviati!")
-        
+        await bot.send_auto_messages()
+        await interaction.followup.send("✅ Messaggi verify inviati!")
     except Exception as e:
-        logger.error(f"Errore invio messaggi: {e}")
         await interaction.followup.send(f"❌ Errore: {e}")
 
 async def main():
